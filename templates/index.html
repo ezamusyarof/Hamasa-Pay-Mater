@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HamasaPayMaster - Sistem Manajemen Gaji & HR</title>
+    <!-- Font & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf.js for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- html2canvas for PNG export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body data-page="{{ active_page|default('dashboard') }}">
+
+    <!-- SIDEBAR -->
+    <sidebar id="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <span class="logo-text">Hamasa<span>PayMaster</span></span>
+                <button class="btn-toggle" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars" id="toggle-icon"></i>
+                </button>
+            </div>
+            <ul class="nav-list">
+                <li class="nav-item active" data-page="dashboard" onclick="event.preventDefault(); switchNav(this, 'dashboard')">
+                    <a href="{{ url_for('dashboard_page') }}"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                </li>
+                <li class="nav-item" data-page="karyawan" onclick="event.preventDefault(); switchNav(this, 'karyawan')">
+                    <a href="{{ url_for('employees_page') }}"><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
+                </li>
+                <li class="nav-item" data-page="kehadiran" onclick="event.preventDefault(); switchNav(this, 'kehadiran')">
+                    <a href="{{ url_for('attendance_page') }}"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
+                </li>
+                <li class="nav-item" data-page="payroll" onclick="event.preventDefault(); switchNav(this, 'payroll')">
+                    <a href="{{ url_for('payroll_page') }}"><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="avatar">HIM</div>
+                <div class="user-info">
+                    <span class="user-name">Manager</span>
+                    <span class="user-role">Hamasa Iparna Mandiri</span>
+                </div>
+            </div>
+        </div>
+    </sidebar>
+
+    <!-- MAIN CONTENT -->
+    <main>
+        <header>
+            <div class="header-title">
+                <h1 id="page-title">Dashboard Utama</h1>
+                <p>Ringkasan operasional dan keuangan HR bulan ini</p>
+            </div>
+            <div class="header-actions">
+                <div class="month-picker-bar">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <input type="month" 
+                        id="selectPeriode" 
+                        class="month-input" 
+                        value="2026-08" 
+                        onchange="loadAttendanceData(this.value)">
+                </div>
+
+                <button class="btn btn-primary" id="btnUpdateAttendance" onclick="updateAttendance()">
+                    <i class="fa-solid fa-rotate"></i>
+                    Update Data Kehadiran
+                </button>
+
+                <button class="btn-icon">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="badge">3</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="content-area">
+
+            <!-- VIEW 1: DASHBOARD -->
+            <section id="view-dashboard" class="view-section active">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-title">Total Karyawan</span>
+                            <div class="metric-icon" style="background:#e0f2fe; color:#0284c7;"><i class="fa-solid fa-user-group"></i></div>
+                        </div>
+                        <div class="metric-value" id="dash-total-emp">0</div>
+                        <div class="metric-footer text-green"><i class="fa-solid fa-arrow-up"></i> 100% Aktif</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-title">Estimasi Gaji Bulan Ini</span>
+                            <div class="metric-icon" style="background:#d1fae5; color:#059669;"><i class="fa-solid fa-money-bill-wave"></i></div>
+                        </div>
+                        <div class="metric-value" id="dash-total-payroll">Rp 0</div>
+                        <div class="metric-footer text-muted">Akurat sesuai potongan/lembur</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-title">Tingkat Kehadiran</span>
+                            <div class="metric-icon" style="background:#fef3c7; color:#d97706;"><i class="fa-solid fa-user-check"></i></div>
+                        </div>
+                        <div class="metric-value">94.2%</div>
+                        <div class="metric-footer text-green"><i class="fa-solid fa-circle"></i> Sesuai Target</div>
+                    </div>
+                </div>
+
+                <div class="dashboard-charts">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">Tren Pengeluaran Gaji (6 Bulan)</div>
+                        </div>
+                        <canvas id="payrollChart" height="140"></canvas>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">Status Kehadiran Hari Ini</div>
+                        </div>
+                        <canvas id="attendanceChart" height="200"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 2: DATA KARYAWAN -->
+            <section id="view-karyawan" class="view-section">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Daftar Karyawan</div>
+                        <button class="btn btn-primary" onclick="openEmpModal()"><i class="fa-solid fa-plus"></i> Tambah Karyawan</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID & Nama</th>
+                                    <th>Jabatan / Divisi</th>
+                                    <th>Gaji Pokok</th>
+                                    <th>Tunjangan</th>
+                                    <th>Email</th>
+                                    <th>No. WhatsApp</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employee-table-body">
+                                <!-- Dynamic Render -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 3: KEHADIRAN & ABSEN -->
+            <section id="view-kehadiran" class="view-section">
+                <div class="tab-menu">
+                    <button class="tab-btn active" onclick="switchTab(this, 'tab-absensi')">Rekap Kehadiran</button>
+                    <button class="tab-btn" onclick="switchTab(this, 'tab-detail-kehadiran')">Detail Kehadiran</button>
+                </div>
+
+                <div id="tab-absensi" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Rekap Kehadiran Karyawan</div>
+                            <span class="text-muted" style="font-size: 12px;">Potongan Denda Late: Rp 25.000 / Jam | Absen: Gaji/22 Per Hari</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Nama Karyawan</th>
+                                        <th>Hadir (Hari)</th>
+                                        <th>Terlambat (Jam)</th>
+                                        <th>Sakit (Hari)</th>
+                                        <th>Absen (Hari)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendance-table-body">
+                                    <!-- Dynamic Render -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="tab-detail-kehadiran" class="tab-content" style="display: none;">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center bg-white py-3">
+                            <div class="card-title h5 mb-0 fw-bold text-secondary">
+                                Detail Kehadiran Karyawan
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="action-buttons d-flex gap-2">
+                                    <button id="btnMainAttendance" class="btn btn-outline-primary" onclick="handleAttendanceAction()">
+                                        <i class="fa-solid fa-pen-to-square"></i> Edit Presensi
+                                    </button>
+                                    <button id="btnCancelEdit" class="btn btn-outline-secondary d-none" onclick="cancelEditMode()">
+                                        <i class="fa-solid fa-xmark"></i> Batal
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover align-middle table-attendance" id="attendanceTable">
+                                    <thead>
+                                        <tr id="tableHeader">
+                                            <!-- Generated by JS -->
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tableBody">
+                                        <!-- Generated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="mt-3 pt-2 border-top fs-7 card-footer" style="font-size: 13px;">
+                                <b>Keterangan Status:</b><br>
+                                <span class="badge bg-success me-1">H = Hadir</span>
+                                <span class="badge bg-warning text-dark me-1">T = Terlambat</span>
+                                <span class="badge bg-info text-dark me-1">S = Sakit</span>
+                                <span class="badge bg-danger me-1">A = Absen</span>
+                                <span class="badge bg-primary me-1">L = Lembur</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 4: PENGGAJIAN (PAYROLL) -->
+            <section id="view-payroll" class="view-section">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">Proses Penggajian Periode Bulan Ini</div>
+                            <p style="font-size: 12px; color: var(--text-muted);">Perhitungan otomatis gaji bersih berdasarkan absensi, tunjangan, dan bonus.</p>
+                        </div>
+                        <button class="btn btn-success" onclick="sendAllWhatsapp()"><i class="fa-brands fa-whatsapp"></i> Kirim Semua via WA</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nama</th>
+                                    <th>Gaji Pokok</th>
+                                    <th>Tunjangan</th>
+                                    <th>Bonus/Insentive</th>
+                                    <th>Potongan</th>
+                                    <th>Gaji Bersih (THP)</th>
+                                    <th>Aksi Slip Gaji</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payroll-table-body">
+                                <!-- Dynamic Render -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- MODAL TAMBAH/EDIT KARYAWAN -->
+    <div class="modal-overlay" id="empModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="empModalTitle">Tambah Karyawan Baru</div>
+                <button class="modal-close" onclick="closeEmpModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="empForm" onsubmit="event.preventDefault();">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>ID Karyawan</label>
+                            <input type="text" id="emp-id" required placeholder="EMP-001">
+                        </div>
+                        <div class="form-group">
+                            <label>Nama Lengkap</label>
+                            <input type="text" id="emp-nama" required placeholder="Nama Karyawan">
+                        </div>
+                        <div class="form-group">
+                            <label>Jabatan</label>
+                            <input type="text" id="emp-jabatan" required placeholder="Software Engineer">
+                        </div>
+                        <div class="form-group">
+                            <label>Divisi</label>
+                            <select id="emp-divisi">
+                                <option>Teknisi</option>
+                                <option>Admin</option>
+                                <option>IT</option>
+                                <option>Marketing</option>
+                                <option>Lainnya</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Gaji Pokok (Rp)</label>
+                            <input type="number" id="emp-gapok" required placeholder="5000000">
+                        </div>
+                        <div class="form-group">
+                            <label>Tunjangan Jabatan & Makan (Rp)</label>
+                            <input type="number" id="emp-tunjangan" required placeholder="1000000">
+                        </div>
+                        <div class="form-group">
+                            <label>Nomor WhatsApp</label>
+                            <input type="text" id="emp-wa" required placeholder="628123456789">
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="emp-email" required placeholder="nama@gmail.com">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEmpModal()">Batal</button>
+                <button class="btn btn-primary" onclick="saveEmployee()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL KONFIRMASI HAPUS KARYAWAN -->
+    <div class="modal-overlay" id="confirmDeleteModal">
+        <div class="modal" style="max-width: 420px;">
+            <div class="modal-header">
+                <div class="modal-title">Konfirmasi Hapus Data</div>
+                <button class="modal-close" onclick="closeDeleteConfirmModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin: 0 0 12px; color: var(--text-muted);">Apakah Anda yakin ingin menghapus data karyawan ini?</p>
+                <div id="deleteConfirmName" style="font-weight: 600; color: var(--primary);"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeleteConfirmModal()">Batal</button>
+                <button class="btn btn-danger" onclick="confirmDeleteEmployee()">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PREVIEW SLIP GAJI -->
+    <div class="modal-overlay" id="slipModal">
+        <div class="modal" style="max-width: 650px;">
+            <div class="modal-header">
+                <div class="modal-title">Pratinjau Slip Gaji Karyawan</div>
+                <button class="modal-close" onclick="closeSlipModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="payslip-container" id="payslip-render-area" style="background: #fff; padding: 20px; border-radius: 8px;">
+                    <div class="payslip-header" style="display:flex; justify-content:space-between; border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+                        <div>
+                            <div class="payslip-company" style="font-weight:700; font-size:16px; color:#0f172a;">PT HAMASA IPARNA MANDIRI</div>
+                            <div style="font-size: 11px; color: #64748b;">Jl. Ciherang Raya No.3A, RT.004/RW.007, Sukatani, Depok</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="payslip-title" style="font-weight:700; font-size:16px; color:#2563eb;">SLIP GAJI</div>
+                            <div style="font-size: 11px; color: #64748b;" id="slip-periode">Periode: Agustus 2026</div>
+                        </div>
+                    </div>
+
+                    <div class="payslip-meta" style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:12px;">
+                        <div>
+                            <div><b>ID:</b> <span id="slip-id">1</span></div>
+                            <div><b>Nama:</b> <span id="slip-nama">Budi Santoso</span></div>
+                        </div>
+                        <div>
+                            <div><b>Jabatan:</b> <span id="slip-jabatan">Senior Engineer</span></div>
+                            <div><b>Divisi:</b> <span id="slip-divisi">Technology</span></div>
+                        </div>
+                    </div>
+
+                    <table class="payslip-table" style="width:100%; margin-bottom:12px; font-size:12px;">
+                        <thead>
+                            <tr style="background:#f8fafc; text-align:left;">
+                                <th style="padding:6px;">PENERIMAAN</th>
+                                <th style="text-align: right; padding:6px;">JUMLAH (RP)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:6px;">Gaji Pokok</td>
+                                <td style="text-align: right; padding:6px;" id="slip-gapok">0</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:6px;">Tunjangan & Bonus</td>
+                                <td style="text-align: right; padding:6px;" id="slip-tunjangan">0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <table class="payslip-table" style="width:100%; margin-bottom:16px; font-size:12px;">
+                        <thead>
+                            <tr style="background:#f8fafc; text-align:left;">
+                                <th style="padding:6px;">POTONGAN</th>
+                                <th style="text-align: right; padding:6px;">JUMLAH (RP)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:6px;">Keterlambatan Kerja (<span id="slip-late-hours">0</span> jam)</td>
+                                <td style="text-align: right; padding:6px;" id="slip-pot-late">0</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:6px;">Mangkir / Absen & Lainnya (<span id="slip-absen-days">0</span> hari)</td>
+                                <td style="text-align: right; padding:6px;" id="slip-pot-absen">0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="payslip-total" style="display:flex; justify-content:space-between; font-weight:700; font-size:14px; background:#f1f5f9; padding:10px; border-radius:6px;">
+                        <span>TOTAL GAJI BERSIH (TAKE HOME PAY)</span>
+                        <span id="slip-thp">Rp 0</span>
+                    </div>
+
+                    <div style="margin-top: 24px; font-size: 10px; color: #94a3b8; text-align: center;">
+                        * Dokumen ini diterbitkan secara otomatis oleh HamasaPayMaster.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="downloadPDF()"><i class="fa-solid fa-file-pdf"></i> Unduh PDF</button>
+                <button class="btn btn-outline" onclick="downloadPNG()"><i class="fa-solid fa-file-image"></i> Unduh PNG</button>
+                <button class="btn btn-success" id="btn-send-single-wa"><i class="fa-brands fa-whatsapp"></i> Kirim WA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION SUCCESS -->
+    <div class="toast" id="toast-success">
+        <i class="fa-solid fa-circle-check text-green"></i>
+        <span id="toast-message-success">Pesan notifikasi</span>
+    </div>
+
+    <!-- TOAST NOTIFICATION FAILED -->
+    <div class="toast toast-danger" id="toast-failed">
+        <i class="fa-solid fa-circle-xmark text-red"></i>
+        <span id="toast-message-failed">Gagal memproses data. Silakan coba lagi!</span>
+    </div>
+
+    <!-- MODAL TAMBAH TUNJANGAN CUSTOM -->
+    <div id="modalTambahTunjangan" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="custom-modal-box">
+            <h3 class="custom-modal-title">Tambah Tunjangan</h3>
+            <input type="hidden" id="tunjanganEmpId">
+
+            <div class="custom-form-group">
+                <label class="custom-form-label">Nama Tunjangan</label>
+                <input type="text" id="namaTunjangan" class="custom-form-input" placeholder="Contoh: Tunjangan Jabatan, Transport, ...">
+            </div>
+
+            <div class="custom-row-calc">
+                <div class="custom-col-flex">
+                    <label class="custom-form-label">Nominal</label>
+                    <div class="custom-input-group">
+                        <span class="custom-input-prefix">Rp</span>
+                        <input type="text" 
+                            id="nominalTunjangan" 
+                            class="custom-form-input has-prefix" 
+                            placeholder="0" 
+                            oninput="formatRupiahInput(this)">
+                    </div>
+                </div>
+                
+                <div class="custom-col-x">x</div>
+                
+                <div class="custom-col-flex">
+                    <label class="custom-form-label">Satuan</label>
+                    <input type="number" id="satuanTunjangan" class="custom-form-input" placeholder="1" value="1">
+                </div>
+            </div>
+
+            <button type="button" class="custom-btn-submit" onclick="simpanTunjangan()">
+                + Tambah Tunjangan
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL TAMBAH BONUS/INSENTIVE -->
+    <div id="modalTambahBonus" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="custom-modal-box">
+            <h3 class="custom-modal-title">Tambah Bonus/Insentive</h3>
+            <input type="hidden" id="bonusEmpId">
+
+            <div class="custom-form-group">
+                <label class="custom-form-label">Nama Bonus/Insentive</label>
+                <input type="text" id="namaBonus" class="custom-form-input" placeholder="Contoh: Insentive Lembur, Kerajinan, ...">
+            </div>
+
+            <div class="custom-row-calc">
+                <div class="custom-col-flex">
+                    <label class="custom-form-label">Nominal</label>
+                    <div class="custom-input-group">
+                        <span class="custom-input-prefix">Rp</span>
+                        <input type="text" 
+                            id="nominalBonus" 
+                            class="custom-form-input has-prefix" 
+                            placeholder="0" 
+                            oninput="formatRupiahInput(this)">
+                    </div>
+                </div>
+                
+                <div class="custom-col-x">x</div>
+                
+                <div class="custom-col-flex">
+                    <label class="custom-form-label">Satuan</label>
+                    <input type="number" id="satuanBonus" class="custom-form-input" placeholder="1" value="1">
+                </div>
+            </div>
+
+            <button type="button" class="custom-btn-submit btn-bonus" onclick="simpanBonus()">
+                + Tambah Bonus/Insentive
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL TAMBAH POTONGAN -->
+    <div id="modalTambahPotongan" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="custom-modal-box">
+            <h3 class="custom-modal-title">Tambah Potongan</h3>
+            <input type="hidden" id="potonganEmpId">
+
+            <div class="custom-form-group">
+                <label class="custom-form-label">Nama Potongan</label>
+                <input type="text" id="namaPotongan" class="custom-form-input" placeholder="Contoh: Pot. Kasbon, Terlambat, ...">
+            </div>
+
+            <div class="custom-row-calc">
+                <div class="custom-col-flex">
+                    <label class="custom-form-label">Nominal</label>
+                    <div class="custom-input-group">
+                        <span class="custom-input-prefix">Rp</span>
+                        <input type="text" 
+                            id="nominalPotongan" 
+                            class="custom-form-input has-prefix" 
+                            placeholder="0" 
+                            oninput="formatRupiahInput(this)">
+                    </div>
+                </div>
+                
+                <div class="custom-col-x">x</div>
+                
+                <div class="custom-col-flex">
+                    <label class="custom-form-label">Satuan</label>
+                    <input type="number" id="satuanPotongan" class="custom-form-input" placeholder="1" value="1">
+                </div>
+            </div>
+
+            <button type="button" class="custom-btn-submit btn-potongan" onclick="simpanPotongan()">
+                + Tambah Potongan
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL TAMBAH KOMPONEN GAJI DENGAN RUMUS VARIASI -->
+    <div id="modalTambahKomponen" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)" style="display: none;">
+        <div class="custom-modal-box">
+            <div class="custom-modal-header">
+                <h3 class="custom-modal-title">Tambah Komponen Gaji</h3>
+                <button type="button" class="custom-modal-close" onclick="closeKomponenModal()">&times;</button>
+            </div>
+            
+            <input type="hidden" id="komponenEmpId">
+
+            <!-- 1. Kategori Komponen -->
+            <div class="custom-form-group">
+                <label class="custom-form-label">Kategori Komponen</label>
+                <select id="kategoriKomponen" class="custom-form-input">
+                    <option value="tunjangan">Tunjangan (+)</option>
+                    <option value="bonus">Bonus (+)</option>
+                    <option value="potongan">Potongan (-)</option>
+                </select>
+            </div>
+
+            <!-- 2. Nama Komponen -->
+            <div class="custom-form-group">
+                <label class="custom-form-label">Nama Komponen</label>
+                <input type="text" 
+                    id="namaKomponen" 
+                    list="masterComponentList" 
+                    class="custom-form-input" 
+                    placeholder="Ketik baru atau pilih yang sudah ada..." 
+                    autocomplete="off">
+                
+                <!-- Wadah pilihan otomatis (Datalist) -->
+                <datalist id="masterComponentList"></datalist>
+            </div>
+
+            <!-- 3. Tipe Rumus Perhitungan -->
+            <div class="custom-form-group">
+                <label class="custom-form-label">Rumus Perhitungan</label>
+                <select id="tipeRumusKomponen" class="custom-form-input" onchange="toggleFormInputsByRumus()">
+                    <option value="FLAT">Nominal Tetap (Flat)</option>
+                    <option value="PER_UNIT">Per Satuan / Qty (Nominal x Jumlah)</option>
+                    <option value="PERCENTAGE">Persentase (%) dari Gaji Pokok</option>
+                </select>
+            </div>
+
+            <!-- 4A. Input Container: NOMINAL TETAP / NOMINAL PER SATUAN -->
+            <div id="containerNominal" class="custom-form-group">
+                <label id="labelNominal" class="custom-form-label">Nominal</label>
+                <div class="custom-input-group">
+                    <span class="custom-input-prefix">Rp</span>
+                    <input type="text" 
+                        id="nominalKomponen" 
+                        class="custom-form-input has-prefix" 
+                        placeholder="0" 
+                        oninput="formatRupiahInput(this)">
+                </div>
+            </div>
+
+            <!-- 4B. Input Container: SATUAN / QTY (Hanya muncul jika PER_UNIT) -->
+            <div id="containerSatuan" class="custom-form-group" style="display: none;">
+                <label class="custom-form-label">Jumlah / Satuan (Qty)</label>
+                <input type="number" id="satuanKomponen" class="custom-form-input" placeholder="1" value="1" min="1">
+            </div>
+
+            <!-- 4C. Input Container: PERSENTASE (Hanya muncul jika PERCENTAGE) -->
+            <div id="containerPersen" class="custom-form-group" style="display: none;">
+                <label class="custom-form-label">Persentase (%)</label>
+                <div class="custom-input-group">
+                    <input type="number" id="persenKomponen" class="custom-form-input" placeholder="Contoh: 5" step="0.1" min="0" max="100">
+                    <span class="custom-input-suffix">%</span>
+                </div>
+                <small style="color: #6b7280; font-size: 0.75rem;">Dihitung dari Gaji Pokok Karyawan</small>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="button" class="custom-btn-submit" onclick="simpanKomponen()">
+                + Simpan Komponen
+            </button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+</body>
+</html>
