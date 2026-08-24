@@ -14,7 +14,7 @@ const daftarKomponen = {
     ],
 
     potongan: [
-        "Potongan Tunjangan Transport & Makan",
+        "Potongan Tj. Transport & Makan",
         "Potongan BPJS TK",
         "Potongan Kasbon",
         "Potongan Absen",
@@ -44,6 +44,7 @@ namaKomponen.addEventListener("input", function () {
     tampilkanKomponen(this.value);
     updateSatuanKomponen(this.value);
     updateNominalKomponen(this.value);
+    toggleKasbonFields(this.value);
 });
 
 function tampilkanKomponen(keyword) {
@@ -64,6 +65,7 @@ function tampilkanKomponen(keyword) {
             dropdownNama.style.display = "none";
             await updateSatuanKomponen();
             await updateNominalKomponen();
+            await toggleKasbonFields();
         });
 
         dropdownNama.appendChild(option);
@@ -265,4 +267,35 @@ function loadKomponenByCategory(category) {
         });
         dropdown.appendChild(option);
     });
+}
+
+function toggleKasbonFields() {
+
+    const namaKomponen = document
+        .getElementById("namaKomponen")
+        .value
+        .trim()
+        .toLowerCase();
+
+    const colKasbon = document.getElementById("colJumlahKasbon");
+    const colCicilan = document.getElementById("colJumlahCicilan");
+
+    const inputKasbon = document.getElementById("jumlahKasbonKomponen");
+    const inputCicilan = document.getElementById("jumlahCicilanKomponen");
+
+    const isKasbon = namaKomponen === "potongan kasbon";
+
+    if (isKasbon) {
+
+        colKasbon.style.setProperty("display", "flex", "important");
+        colCicilan.style.setProperty("display", "flex", "important");
+
+    } else {
+
+        colKasbon.style.setProperty("display", "none", "important");
+        colCicilan.style.setProperty("display", "none", "important");
+
+        inputKasbon.value = "";
+        inputCicilan.value = "";
+    }
 }

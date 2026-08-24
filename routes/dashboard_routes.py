@@ -725,6 +725,8 @@ def payroll_page():
             "basic_salary": s.basic_salary,
             "thp": s.thp,
             "pph21": s.pph21,
+            "kasbon": s.kasbon,
+            "cicilan": s.cicilan,
             "thp_after_tax": s.thp_after_tax,
             "tunjanganList": tunjangan_list,
             "bonusList": bonus_list,

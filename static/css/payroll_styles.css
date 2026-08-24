@@ -350,7 +350,6 @@
     /* margin-top: 6px; */
 
     min-height: 34px;
-
     padding: 6px 8px;
 
     /* border-top: 1px solid #111111; */
@@ -358,7 +357,7 @@
 
     display: grid;
 
-    grid-template-columns: 1fr 12px 28px 90px;
+    grid-template-columns: 1fr 12px 28px 57px;
 
     align-items: center;
 

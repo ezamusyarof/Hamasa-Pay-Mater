@@ -5,6 +5,10 @@ function openKomponenModal(empId, category = 'tunjangan', att = '', periode = ''
     document.getElementById('namaKomponen').value = '';
     document.getElementById('nominalKomponen').value = '';
     document.getElementById('satuanKomponen').value = '1';
+    document.getElementById('jumlahKasbonKomponen').value = '';
+    document.getElementById('jumlahCicilanKomponen').value = '';
+
+    toggleKasbonFields();
 
     currentComponentCategory = category;
     loadKomponenByCategory(category);
@@ -104,8 +108,16 @@ async function simpanKomponen(empId, category, att, periode) {
         parseFloat(
             document.getElementById('nominalKomponen').dataset.rawValue
         ) || document.getElementById('nominalKomponen').value || 0;
-
-    console.log(nominalInput)
+        
+    const jumlahKasbonInput =
+        parseFloat(
+            document.getElementById('jumlahKasbonKomponen').dataset.rawValue
+        ) || document.getElementById('jumlahKasbonKomponen').value || 0;
+        
+    const jumlahCicilanInput =
+        parseFloat(
+            document.getElementById('jumlahCicilanKomponen').dataset.rawValue
+        ) || document.getElementById('jumlahCicilanKomponen').value || 0;
 
     const unitInput =
         document.getElementById('satuanKomponen').value;
@@ -156,6 +168,8 @@ async function simpanKomponen(empId, category, att, periode) {
                 type: category,
                 name: nameInput,
                 rate: nominalInput,
+                kasbon: jumlahKasbonInput,
+                cicilan: jumlahCicilanInput,
                 qty: qty,
                 amount: amount
             })

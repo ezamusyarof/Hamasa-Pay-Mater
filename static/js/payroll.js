@@ -29,7 +29,7 @@ let masterComponentNames = [
     "BPJS Kesehatan",
     "BPJS Ketenagakerjaan",
     "Bonus Performa",
-    "Potongan Keterlambatan",
+    "Potongan Terlambat",
     "Potongan Kasbon"
 ];
 
@@ -43,7 +43,7 @@ function getMasterComponentNames() {
             "BPJS Kesehatan",
             "BPJS Ketenagakerjaan",
             "Bonus Performa",
-            "Potongan Keterlambatan",
+            "Potongan Terlambat",
             "Potongan Kasbon"
         ];
     }
@@ -543,6 +543,8 @@ function openSlipModal(employeeId) {
         emp => String(emp.id) === String(employeeId)
     );
 
+    console.log(employee)
+
     if (!employee) {
         console.error("Employee tidak ditemukan:", employeeId);
         return;
@@ -636,6 +638,18 @@ function openSlipModal(employeeId) {
     ).textContent = formatRupiah(
         employee.basic_salary
     );
+    
+    document.getElementById(
+        "slip-jumlah-kasbon"
+    ).textContent = formatRupiah(
+        employee.kasbon
+    );
+    
+    document.getElementById(
+        "slip-jumlah-cicilan"
+    ).textContent = formatRupiah(
+        employee.cicilan
+    );
 
 
     // ==========================================================
@@ -660,17 +674,27 @@ function openSlipModal(employeeId) {
 
     tunjanganContainer.innerHTML = "";
 
-    (employee.tunjanganList || []).forEach(
-        (item, index) => {
+    daftarKomponen.tunjangan.forEach(
+        (namaKomponen, index) => {
 
             const letter =
                 String.fromCharCode(66 + index);
+
+            // Cari komponen yang sudah memiliki data nominal
+            const item = (employee.tunjanganList || []).find(
+                item => item.name === namaKomponen
+            );
+
+            // Jika tidak ada, nominal dianggap 0
+            const amount = item
+                ? Number(item.amount || 0)
+                : 0;
 
             tunjanganContainer.innerHTML += `
                 <div class="slip-dynamic-item">
 
                     <span>
-                        ${letter}. ${escapeHtml(item.name)}
+                        ${letter}. ${escapeHtml(namaKomponen)}
                     </span>
 
                     <b>:</b>
@@ -678,7 +702,7 @@ function openSlipModal(employeeId) {
                     <span>Rp</span>
 
                     <strong>
-                        ${formatRupiah(item.amount)}
+                        ${formatRupiah(amount)}
                     </strong>
 
                 </div>
@@ -810,31 +834,41 @@ function openSlipModal(employeeId) {
 
     potonganContainer.innerHTML = "";
 
-    (employee.potonganList || []).forEach(
-        (item, index) => {
+        daftarKomponen.potongan.forEach(
+            (namaKomponen, index) => {
 
-            const letter =
-                String.fromCharCode(66 + index);
+                const letter =
+                    String.fromCharCode(66 + index);
 
-            potonganContainer.innerHTML += `
-                <div class="slip-dynamic-item">
+                // Cari data komponen yang sudah tersimpan
+                const item = (employee.potonganList || []).find(
+                    item => item.name === namaKomponen
+                );
 
-                    <span>
-                        ${letter}. ${escapeHtml(item.name)}
-                    </span>
+                // Jika belum ada, nominal dianggap 0
+                const amount = item
+                    ? Number(item.amount || 0)
+                    : 0;
 
-                    <b>:</b>
+                potonganContainer.innerHTML += `
+                    <div class="slip-dynamic-item">
 
-                    <span>Rp</span>
+                        <span>
+                            ${letter}. ${escapeHtml(namaKomponen)}
+                        </span>
 
-                    <strong>
-                        ${formatRupiah(item.amount)}
-                    </strong>
+                        <b>:</b>
 
-                </div>
-            `;
-        }
-    );
+                        <span>Rp</span>
+
+                        <strong>
+                            ${formatRupiah(amount)}
+                        </strong>
+
+                    </div>
+                `;
+            }
+        );
 
 
     // ==========================================================
@@ -849,6 +883,11 @@ function openSlipModal(employeeId) {
                 total + Number(item.amount || 0),
             0
         );
+    
+    const potongan_kasbon =
+    (employee.potonganList || []).find(
+        item => item.name === "Potongan Kasbon"
+    )?.amount || 0;
 
     document.getElementById(
         "slip-total-deduction"
@@ -865,6 +904,13 @@ function openSlipModal(employeeId) {
     ).textContent =
         formatRupiah(
             employee.thp_after_tax
+        );
+
+    document.getElementById(
+        "slip-sisa-kasbon"
+    ).textContent =
+        formatRupiah(
+            employee.kasbon - employee.cicilan - potongan_kasbon
         );
 
 
@@ -939,6 +985,153 @@ function printSlip() {
     setTimeout(() => {
         printContainer.remove();
     }, 500);
+}
+
+function createSlipExportClone() {
+    const slip = document.getElementById("slipPreview");
+
+    if (!slip) {
+        console.error("Element #slipPreview tidak ditemukan.");
+        return null;
+    }
+
+    const clone = slip.cloneNode(true);
+
+    // Posisi di luar layar agar tidak mengganggu UI
+    clone.style.position = "absolute";
+    clone.style.left = "-99999px";
+    clone.style.top = "0";
+
+    // Hilangkan batas scroll
+    clone.style.maxHeight = "none";
+    clone.style.height = "auto";
+    clone.style.overflow = "visible";
+    clone.style.overflowY = "visible";
+    clone.style.overflowX = "visible";
+
+    // Pastikan lebar mengikuti slip asli
+    clone.style.width = `${slip.offsetWidth}px`;
+
+    // Tambahkan ke body agar html2canvas bisa merendernya
+    document.body.appendChild(clone);
+
+    return clone;
+}
+async function downloadSlipPNG() {
+    const clone = createSlipExportClone();
+
+    if (!clone) {
+        return;
+    }
+
+    try {
+
+        // Tunggu layout selesai
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const canvas = await html2canvas(clone, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+
+            // Paksa mengambil seluruh tinggi clone
+            width: clone.scrollWidth,
+            height: clone.scrollHeight,
+            windowWidth: clone.scrollWidth,
+            windowHeight: clone.scrollHeight
+        });
+
+        const link = document.createElement("a");
+
+        link.download = "slip-gaji.png";
+        link.href = canvas.toDataURL("image/png");
+
+        link.click();
+
+    } catch (error) {
+
+        console.error("Gagal membuat PNG:", error);
+
+    } finally {
+
+        // Hapus clone
+        clone.remove();
+    }
+}
+
+async function downloadSlipPDF() {
+    const clone = createSlipExportClone();
+
+    if (!clone) {
+        return;
+    }
+
+    try {
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const canvas = await html2canvas(clone, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+
+            width: clone.scrollWidth,
+            height: clone.scrollHeight,
+            windowWidth: clone.scrollWidth,
+            windowHeight: clone.scrollHeight
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+
+        const { jsPDF } = window.jspdf;
+
+        const pdf = new jsPDF({
+            orientation: "portrait",
+            unit: "mm",
+            format: "a4"
+        });
+
+        const pageWidth = 210;
+        const pageHeight = 297;
+
+        const margin = 10;
+
+        const availableWidth = pageWidth - margin * 2;
+        const availableHeight = pageHeight - margin * 2;
+
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+
+        const ratio = Math.min(
+            availableWidth / imgWidth,
+            availableHeight / imgHeight
+        );
+
+        const finalWidth = imgWidth * ratio;
+        const finalHeight = imgHeight * ratio;
+
+        const x = (pageWidth - finalWidth) / 2;
+        const y = margin;
+
+        pdf.addImage(
+            imgData,
+            "PNG",
+            x,
+            y,
+            finalWidth,
+            finalHeight
+        );
+
+        pdf.save("slip-gaji.pdf");
+
+    } catch (error) {
+
+        console.error("Gagal membuat PDF:", error);
+
+    } finally {
+
+        clone.remove();
+    }
 }
 
 async function createAllPayrollByMonth() {

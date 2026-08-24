@@ -29,7 +29,7 @@ let masterComponentNames = [
     "BPJS Kesehatan",
     "BPJS Ketenagakerjaan",
     "Bonus Performa",
-    "Potongan Keterlambatan",
+    "Potongan Terlambat",
     "Potongan Kasbon"
 ];
 

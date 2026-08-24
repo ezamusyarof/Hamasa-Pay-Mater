@@ -1,7 +1,8 @@
 import datetime
+import math
 from sqlite3 import IntegrityError
 from flask import Blueprint, jsonify, request
-from models import Employee, PayrollItem, PayrollSummary
+from models import DailyAttendance, Employee, PayrollItem, PayrollSummary
 from services.payroll_service import save_monthly_payroll, pph_21
 from extensions import db
 
@@ -19,11 +20,13 @@ def add_payroll_item():
     periode = data.get("periode")
     item_type = data.get("type")
     name = data.get("name")
+    kasbon = data.get("kasbon")
+    cicilan = data.get("cicilan")
     rate = float(data.get("rate", 0))
     qty = float(data.get("qty", 1))
     amount = float(data.get("amount", 0))
 
-    print("TEST: ",item_type, "-", rate,"-",  qty,"-",  amount)
+    print("TEST: ",kasbon,"-",cicilan)
 
     # Cari employee
     emp = db.session.get(Employee, emp_id)
@@ -106,6 +109,9 @@ def add_payroll_item():
     summary.thp_after_tax = (
         summary.thp - summary.pph21
     )
+
+    summary.kasbon = kasbon
+    summary.cicilan = cicilan
 
     db.session.commit()
 
@@ -200,6 +206,52 @@ def delete_payroll_item():
         "thp_after_tax": summary.thp_after_tax
     }), 200
 
+def add_payroll_item_internal(
+    emp_id,
+    periode,
+    item_type,
+    name,
+    rate=0,
+    qty=1,
+    amount=0
+):
+    emp = db.session.get(Employee, emp_id)
+
+    if not emp:
+        raise ValueError("Karyawan tidak ditemukan")
+
+    summary = PayrollSummary.query.filter_by(
+        employee_id=emp_id,
+        periode=periode
+    ).first()
+
+    if not summary:
+        summary = PayrollSummary(
+            employee_id=emp_id,
+            periode=periode,
+            basic_salary=emp.basic_salary or 0,
+            total_earning=emp.basic_salary or 0,
+            total_deduction=0,
+            thp=emp.basic_salary or 0
+        )
+
+        db.session.add(summary)
+        db.session.flush()
+
+    new_item = PayrollItem(
+        payroll_summary_id=summary.id,
+        name=name,
+        type=item_type,
+        rate=float(rate or 0),
+        qty=float(qty or 1),
+        unit="unit",
+        amount=float(amount or 0)
+    )
+
+    db.session.add(new_item)
+    db.session.flush()
+
+    return new_item
 
 @payroll_bp.route("/payroll/generate", methods=["POST"])
 def generate_payroll():
@@ -244,83 +296,204 @@ def generate_payroll():
         # ==========================================
         for employee in employees:
 
-            # Cek apakah payroll periode tersebut
-            # sudah tersedia
+            # ==========================================
+            # CEK APAKAH PAYROLL SUDAH ADA
+            # ==========================================
             existing_summary = PayrollSummary.query.filter_by(
                 employee_id=employee.id,
                 periode=periode
             ).first()
+
+            print(employee.name, ": ", existing_summary)
 
             if existing_summary:
                 skipped_count += 1
                 continue
 
 
+            # ==========================================
+            # DATA BASIC SALARY
+            # ==========================================
             basic_salary = float(employee.basic_salary or 0)
 
+            print("GAPOK -> ", basic_salary)
+
 
             # ==========================================
-            # HITUNG PPH 21
+            # BUAT PAYROLL SUMMARY DASAR
             # ==========================================
-            pph21 = pph_21(
-                basic_salary,
+            new_summary = PayrollSummary(
+                employee_id=employee.id,
+                periode=periode,
+                basic_salary=basic_salary,
+                total_earning=basic_salary,
+                total_deduction=0,
+                thp=basic_salary,
+                pph21=0,
+                thp_after_tax=basic_salary,
+                status_wa="Pending"
+            )
+
+            db.session.add(new_summary)
+            db.session.flush()
+
+
+            # ==========================================
+            # AMBIL DATA ABSENSI
+            # ==========================================
+            attendance = DailyAttendance.query.filter(
+                DailyAttendance.user_id == employee.user_id,
+                DailyAttendance.date.like(f"{periode}-%")
+            ).all()
+
+            qty_absen = 0
+            qty_terlambat = 0
+
+            for record in attendance:
+
+                if record.status == "A":
+                    qty_absen += 1
+
+                elif record.status == "T":
+                    qty_terlambat += 1
+
+
+            print("ABSEN -> ", qty_absen)
+            print("TERLAMBAT -> ", qty_terlambat)
+
+
+            # ==========================================
+            # RATE
+            # ==========================================
+            rate_absen = math.floor(basic_salary / 30)
+            rate_terlambat = 25000
+
+
+            # ==========================================
+            # POTONGAN ABSEN
+            # ==========================================
+            if qty_absen > 0 and rate_absen > 0:
+
+                add_payroll_item_internal(
+                    employee.id,
+                    periode,
+                    "potongan",
+                    "Potongan Absen",
+                    rate=rate_absen,
+                    qty=qty_absen,
+                    amount=rate_absen * qty_absen
+                )
+
+                print("Potongan absen sudah dihitung")
+
+
+            # ==========================================
+            # POTONGAN TERLAMBAT
+            # ==========================================
+            if qty_terlambat > 0 and rate_terlambat > 0:
+
+                add_payroll_item_internal(
+                    employee.id,
+                    periode,
+                    "potongan",
+                    "Potongan Terlambat",
+                    rate=rate_terlambat,
+                    qty=qty_terlambat,
+                    amount=rate_terlambat * qty_terlambat
+                )
+
+                print("Potongan terlambat sudah dihitung")
+
+
+            # ==========================================
+            # HITUNG ULANG DARI PAYROLL ITEM
+            # ==========================================
+            all_items = new_summary.items
+
+            total_tunjangan = sum(
+                item.amount
+                for item in all_items
+                if item.type == "tunjangan"
+            )
+
+            total_bonus = sum(
+                item.amount
+                for item in all_items
+                if item.type == "bonus"
+            )
+
+            total_potongan = sum(
+                item.amount
+                for item in all_items
+                if item.type == "potongan"
+            )
+
+
+            # ==========================================
+            # TOTAL EARNING
+            # ==========================================
+            new_summary.total_earning = (
+                basic_salary
+                + total_tunjangan
+                + total_bonus
+            )
+
+
+            # ==========================================
+            # TOTAL DEDUCTION
+            # ==========================================
+            new_summary.total_deduction = total_potongan
+
+
+            # ==========================================
+            # THP
+            # ==========================================
+            new_summary.thp = (
+                new_summary.total_earning
+                - new_summary.total_deduction
+            )
+
+            print("TOTAL EARNING -> ", new_summary.total_earning)
+            print("TOTAL DEDUCTION -> ", new_summary.total_deduction)
+            print("THP -> ", new_summary.thp)
+
+
+            # ==========================================
+            # PPH 21
+            # ==========================================
+            new_summary.pph21 = pph_21(
+                new_summary.thp,
                 employee.gender,
                 employee.married_status,
                 employee.dependents
             )
 
-
-            thp_after_tax = basic_salary - pph21
+            print("PPH21 -> ", new_summary.pph21)
 
 
             # ==========================================
-            # BUAT PAYROLL SUMMARY
+            # THP AFTER TAX
             # ==========================================
-            new_summary = PayrollSummary(
-                employee_id=employee.id,
-                periode=periode,
-
-                basic_salary=basic_salary,
-
-                total_earning=basic_salary,
-                total_deduction=0,
-
-                thp=basic_salary,
-
-                pph21=pph21,
-                thp_after_tax=thp_after_tax,
-
-                status_wa="Pending"
+            new_summary.thp_after_tax = (
+                new_summary.thp
+                - new_summary.pph21
             )
 
-            db.session.add(new_summary)
+            print(
+                "THP AFTER TAX -> ",
+                new_summary.thp_after_tax
+            )
+
 
             created_count += 1
 
-
-        # ==========================================
-        # COMMIT
-        # ==========================================
         db.session.commit()
-
 
         return jsonify({
             "message": "Payroll berhasil dibuat",
-            "periode": periode,
-            "total_karyawan": len(employees),
             "created": created_count,
             "skipped": skipped_count
-        }), 201
-
-
-    except IntegrityError:
-
-        db.session.rollback()
-
-        return jsonify({
-            "message": "Gagal membuat payroll karena terjadi duplikasi data"
-        }), 409
-
+        }), 200
 
     except Exception as e:
 

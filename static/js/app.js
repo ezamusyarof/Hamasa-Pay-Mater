@@ -158,6 +158,15 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     updateToggleIcon(isCollapsed);
+
+    // const namaKomponen = document.getElementById("namaKomponen");
+
+    // if (namaKomponen) {
+    //     namaKomponen.addEventListener(
+    //         "input",
+    //         toggleKasbonFields
+    //     );
+    // }
 });
 
 // SLIP GAJI & WHATSAPP LOGIC

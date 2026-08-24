@@ -134,7 +134,7 @@ def generate_auto_items(employee, att):
 
     if late_cut > 0:
         items.append({
-            "name": "Potongan Keterlambatan",
+            "name": "Potongan Terlambat",
             "type": "potongan",
             "rate": LATE_PENALTY,
             "qty": telat,

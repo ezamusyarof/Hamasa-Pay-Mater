@@ -57,6 +57,8 @@ class PayrollSummary(db.Model):
     total_earning = db.Column(db.Float, default=0)
     total_deduction = db.Column(db.Float, default=0)
     thp = db.Column(db.Float, default=0)
+    kasbon = db.Column(db.Float, default=0)
+    cicilan = db.Column(db.Float, default=0)
     pph21 = db.Column(db.Float, default=0)
     thp_after_tax = db.Column(db.Float, default=0)
     status_wa = db.Column(db.String(20), default="Pending")
