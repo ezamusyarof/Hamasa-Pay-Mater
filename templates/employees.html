@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HamasaPayMaster - Sistem Manajemen Gaji & HR</title>
+    <!-- Font & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf.js for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- html2canvas for PNG export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body data-page="{{ active_page|default('dashboard') }}">
+
+    <!-- SIDEBAR -->
+    <sidebar id="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <span class="logo-text">Hamasa<span>PayMaster</span></span>
+                <button class="btn-toggle" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars" id="toggle-icon"></i>
+                </button>
+            </div>
+            <ul class="nav-list">
+                <li class="nav-item" data-page="dashboard">
+                    <a href="/dashboard"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                </li>
+                <li class="nav-item active" data-page="karyawan">
+                    <a href="/employees"><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
+                </li>
+                <li class="nav-item" data-page="kehadiran">
+                    <a href="/attendance"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
+                </li>
+                <li class="nav-item" data-page="payroll">
+                    <a href="/payroll"><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="avatar">HIM</div>
+                <div class="user-info">
+                    <span class="user-name">Manager</span>
+                    <span class="user-role">Hamasa Iparna Mandiri</span>
+                </div>
+            </div>
+        </div>
+    </sidebar>
+
+    <!-- MAIN CONTENT -->
+    <main>
+        <header>
+            <div class="header-title">
+                <h1 id="page-title">Data Karyawan</h1>
+            </div>
+        </header>
+
+        <div class="content-area">
+
+            <!-- VIEW 2: DATA KARYAWAN -->
+            <section id="view-karyawan">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Daftar Karyawan</div>
+                        <button class="btn btn-primary" onclick="openEmpModal()"><i class="fa-solid fa-plus"></i> Tambah Karyawan</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>ID</th>
+                                    <th>Nama</th>
+                                    <th>Posisi</th>
+                                    <th>Gaji Pokok</th>
+                                    <th>Jenis Kelamin</th>
+                                    <th>PTKP</th>
+                                    <!-- <th>Email</th> -->
+                                    <th>No. WhatsApp</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employee-table-body">
+                                {% for emp in employees %}
+                                <tr>
+                                    <td><div style="background-color: var(--accent); width: 27px; height: 100%; color: white; border-radius: 5px; text-align: center; padding: 5px;">{{ loop.index }}</div></td>
+                                    <td>{{ emp.user_id }}</td>
+                                    <td>{{ emp.name }}</td>
+                                    <td>{{ emp.position }}</td>
+                                    <td class="harga">{{ emp.basic_salary }}</td>
+                                    <td>{{ emp.gender }}</td>
+                                    <td>{{ emp.ptkp }}</td>
+                                    <!-- <td>{{ emp.email }}</td> -->
+                                    <td>{{ emp.phone }}</td>
+                                    <td>
+                                        <button class="btn btn-outline" style="padding:4px 8px;" onclick="openEmpModal('{{emp.id}}')"><i class="fa-solid fa-pen"></i></button>
+                                        <button class="btn btn-outline" style="padding:4px 8px; color:var(--danger);" onclick="deleteEmployee('{{emp.id}}','{{emp.name}}')"><i class="fa-solid fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- MODAL TAMBAH/EDIT KARYAWAN -->
+    <div class="modal-overlay" id="empModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="empModalTitle">Tambah Karyawan Baru</div>
+                <button class="modal-close" onclick="closeEmpModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="empForm" onsubmit="event.preventDefault();">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>ID Karyawan</label>
+                            <input type="text" id="emp-id" required placeholder="ID Absensi Karyawan">
+                        </div>
+                        <div class="form-group">
+                            <label>Nama Lengkap</label>
+                            <input type="text" id="emp-nama" required placeholder="Nama Karyawan">
+                        </div>
+                        <div class="form-group">
+                            <label>Posisi</label>
+                            <input type="text" id="emp-jabatan" required placeholder="Teknisi">
+                        </div>
+                        <!-- <div class="form-group">
+                            <label>Divisi</label>
+                            <select id="emp-divisi">
+                                <option>Teknisi</option>
+                                <option>Admin</option>
+                                <option>IT</option>
+                                <option>Marketing</option>
+                                <option>Lainnya</option>
+                            </select>
+                        </div> -->
+                        <div class="form-group">
+                            <label>Gaji Pokok</label>
+                            <div class="input-inline-wrapper">
+                                <!-- Wrapper utama diberi ID untuk deteksi klik di luar -->
+                                <div class="combobox-wrapper" id="wrapperNominal">
+                                    <span class="custom-input-prefix" style="padding-top:10px;">Rp</span>
+                                    <input type="text" 
+                                        id="emp-gapok" 
+                                        class="custom-form-input has-prefix" 
+                                        placeholder="0" 
+                                        oninput="formatRupiahInput(this)" 
+                                        autocomplete="off">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="emp-status-perkawinan">Jenis Kelamin</label>
+                            <select id="emp-jenis-kelamin" required>
+                                <option value="" disabled selected>Pilih status</option>
+                                <option value="Laki-Laki">Laki-Laki</option>
+                                <option value="Perempuan">Perempuan</option>
+                            </select>
+                        </div>
+                        <!-- <div class="form-group">
+                            <label>Tunjangan Jabatan & Makan (Rp)</label>
+                            <input type="number" id="emp-tunjangan" required placeholder="1000000">
+                        </div> -->                        
+                        <div class="form-group">
+                            <label for="emp-status-perkawinan">Status Perkawinan</label>
+                            <select id="emp-status-perkawinan" required>
+                                <option value="" disabled selected>Pilih status</option>
+                                <option value="0">Tidak Kawin</option>
+                                <option value="1">Kawin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Jumlah Tanggungan</label>
+                            <input type="number" id="emp-jumlah-tanggungan" required placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Nomor WhatsApp</label>
+                            <input type="text" id="emp-wa" required placeholder="628123456789">
+                        </div>
+                        <!-- <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="emp-email" required placeholder="nama@gmail.com">
+                        </div> -->
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEmpModal()">Batal</button>
+                <button class="btn btn-primary" onclick="saveEmployee()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL KONFIRMASI HAPUS KARYAWAN -->
+    <div class="modal-overlay" id="confirmDeleteModal">
+        <div class="modal" style="max-width: 420px;">
+            <div class="modal-header">
+                <div class="modal-title">Konfirmasi Hapus Data</div>
+                <button class="modal-close" onclick="closeDeleteConfirmModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin: 0 0 12px; color: var(--text-muted);">Apakah Anda yakin ingin menghapus data karyawan ini?</p>
+                <div id="deleteConfirmName" style="font-weight: 600; color: var(--primary);"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeleteConfirmModal()">Batal</button>
+                <button class="btn btn-danger" onclick="confirmDeleteEmployee()">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION SUCCESS -->
+    <div class="toast" id="toast-success">
+        <i class="fa-solid fa-circle-check text-green"></i>
+        <span id="toast-message-success">Pesan notifikasi</span>
+    </div>
+
+    <!-- TOAST NOTIFICATION FAILED -->
+    <div class="toast toast-danger" id="toast-failed">
+        <i class="fa-solid fa-circle-xmark text-red"></i>
+        <span id="toast-message-failed">Gagal memproses data. Silakan coba lagi!</span>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/employees.js') }}"></script>
+    <!-- <script src="{{ url_for('static', filename='js/slip.js') }}"></script> -->
+
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HamasaPayMaster - Sistem Manajemen Gaji & HR</title>
+    <!-- Font & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf.js for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- html2canvas for PNG export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body data-page="{{ active_page|default('dashboard') }}">
+
+    <!-- SIDEBAR -->
+    <sidebar id="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <span class="logo-text">Hamasa<span>PayMaster</span></span>
+                <button class="btn-toggle" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars" id="toggle-icon"></i>
+                </button>
+            </div>
+            <ul class="nav-list">
+                <li class="nav-item" data-page="dashboard">
+                    <a href="/dashboard"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                </li>
+                <li class="nav-item" data-page="karyawan">
+                    <a href="/employees"><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
+                </li>
+                <li class="nav-item active" data-page="kehadiran">
+                    <a href="/attendance"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
+                </li>
+                <li class="nav-item" data-page="payroll">
+                    <a href="/payroll"><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="avatar">HIM</div>
+                <div class="user-info">
+                    <span class="user-name">Manager</span>
+                    <span class="user-role">Hamasa Iparna Mandiri</span>
+                </div>
+            </div>
+        </div>
+    </sidebar>
+
+    <!-- MAIN CONTENT -->
+    <main>
+        <header>
+            <div class="header-title">
+                <h1 id="page-title">Kehadiran Karyawan</h1>
+            </div>
+            <div class="header-actions">
+                <div class="month-picker-bar" onclick="openMonthPicker()">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <input type="month" 
+                        id="selectPeriode" 
+                        class="month-input" 
+                        value="{{ periode_raw }}"
+                        onchange="loadPageData('attendance',this.value)">
+                </div>
+
+                <button class="btn btn-primary" id="btnUpdateAttendance" onclick="updateAttendance()">
+                    <i class="fa-solid fa-rotate"></i>
+                    Update Data Kehadiran
+                </button>
+            </div>
+        </header>
+
+        <div class="content-area">
+            <!-- VIEW 3: KEHADIRAN & ABSEN -->
+            <section id="view-kehadiran">
+                <div class="tab-menu">
+                    <button class="tab-btn active"">Rekap Kehadiran</button>
+                    <a class="tab-btn no-underline" href="/attendance/detail">Detail Kehadiran</a>
+                </div>
+
+                <div id="tab-absensi" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Rekap Kehadiran Karyawan</div>
+                            <span class="text-muted" style="font-size: 12px;">Potongan Terlambat: Rp 25.000 per Hari • Potongan Absen: Gapok ÷ 30 per Hari</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Nama Karyawan</th>
+                                        <th>Hadir (Hari)</th>
+                                        <th>Terlambat (Hari)</th>
+                                        <th>Sakit (Hari)</th>
+                                        <th>Absen (Hari)</th>
+                                        <th>Lembur (Hari)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendance-table-body">
+                                    {% for emp in employees %}
+                                    <tr>
+                                        <td><b>{{emp.name}}</b><br><small class="text-muted">{{emp.user_id}}</small></td>
+                                        <td><span class="status-badge status-present">{{emp.hadir}} Hari</span></td>
+                                        <td><span class="status-badge status-late">{{emp.terlambat}} Hari</span></td>
+                                        <td><span class="status-badge status-sick">{{emp.sakit}} Hari</span></td>
+                                        <td><span class="status-badge status-absen">{{emp.alpha}} Hari</span></td>
+                                        <td><span class="status-badge status-lembur">{{emp.lembur}} Hari</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="tab-detail-kehadiran" class="tab-content" style="display: none;">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center bg-white py-3">
+                            <div class="card-title h5 mb-0 fw-bold text-secondary">
+                                Detail Kehadiran Karyawan
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="action-buttons d-flex gap-2">
+                                    <button id="btnMainAttendance" class="btn btn-outline-primary" onclick="handleAttendanceAction()">
+                                        <i class="fa-solid fa-pen-to-square"></i> Edit Presensi
+                                    </button>
+                                    <button id="btnCancelEdit" class="btn btn-outline-secondary d-none" onclick="cancelEditMode()">
+                                        <i class="fa-solid fa-xmark"></i> Batal
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table
+                                    class="table table-bordered table-hover align-middle table-attendance"
+                                    id="attendanceTable"
+                                >
+                                    <thead>
+                                        <tr id="tableHeader">
+                                            <th
+                                                class="align-middle text-nowrap"
+                                                style="min-width: 120px; position: sticky; left: 0; background: #fff; z-index: 2;"
+                                            >Nama</th>
+
+                                            {% for d in month %}
+                                            <th
+                                                class="text-center align-middle"
+                                                style="min-width: 0px; font-size: 12px; padding: 6px 2px;"
+                                            >{{d}}</th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+
+                                    <tbody id="tableBody">
+                                        {% for emp in employees %}
+                                        <tr>
+                                            <td
+                                                class="text-nowrap"
+                                                style="position: sticky; left: 0; background: #fff; font-weight: 600; font-size: 13px;"
+                                            >{{ emp.name }}</td>
+
+                                            {% for d in month %}
+                                                {% set status = attendance_matrix[emp.user_id][d] %}
+                                                <td
+                                                    class="text-center align-middle p-1"
+                                                >
+                                                    <!-- <span
+                                                        class="status-badge
+                                                        {% if status == 'H' %} status-present
+                                                        {% elif status == 'T' %} status-late
+                                                        {% elif status == 'S' %} status-sick
+                                                        {% elif status == 'A' %} status-absen
+                                                        {% elif status == 'L' %} status-lembur
+                                                        {% else %} bg-secondary
+                                                        {% endif %}"
+                                                        style="width: 22px; padding: 6px 0; display: inline-block;"
+                                                    >{{status}}</span> -->
+                                                    <span
+                                                        class="status-badge" data-status="{{status}}"
+                                                        style="width: 22px; padding: 6px 0; display: inline-block;"
+                                                    >{{status}}</span>
+                                                </td>
+
+                                            {% endfor %}
+
+                                        </tr>
+                                        {% endfor %}
+
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="mt-3 pt-2 border-top fs-7 card-footer" style="font-size: 13px;">
+                                <b>Keterangan Status:</b><br>
+                                <span class="badge bg-success me-1">H = Hadir</span>
+                                <span class="badge bg-warning text-dark me-1">T = Terlambat</span>
+                                <span class="badge bg-info text-dark me-1">S = Sakit</span>
+                                <span class="badge bg-danger me-1">A = Absen</span>
+                                <span class="badge bg-primary me-1">L = Lembur</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/attendance.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/slip.js') }}"></script>
+
+</body>
+</html>

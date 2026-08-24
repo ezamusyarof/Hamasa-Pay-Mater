@@ -34,6 +34,10 @@ body {
     overflow: hidden;
 }
 
+.no-underline {
+  text-decoration: none;
+}
+
 /* Sidebar Styling */
 sidebar {
     width: 260px;
@@ -42,8 +46,8 @@ sidebar {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    flex-shrink: 0;
-    transition: all 0.3s ease;
+    /* flex-shrink: 0; */
+    /* transition: all 0.3s ease; */
     z-index: 10;
 }
 
@@ -364,7 +368,7 @@ header {
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: 20px;
-    margin-bottom: 28px;
+    margin-bottom: 2px;
 }
 
 .chart-card {
@@ -504,10 +508,11 @@ tr:hover td {
     background-color: rgba(241, 245, 249, 0.8);
 }
 
-.status-present { background-color: #d1fae5; color: #065f46; }
-.status-late { background-color: #fef3c7; color: #92400e; }
-.status-sick { background-color: #e0f2fe; color: #075985; }
-.status-absen { background-color: #fee2e2; color: #991b1b; }
+.status-present { background-color: #d8f9e8; color: #065f46; }
+.status-late { background-color: #fbebe0; color: #a56f12; }
+.status-sick { background-color: #c7f8fe; color: #265aac; }
+.status-absen { background-color: #f9e6e6; color: #b40f0f; }
+.status-lembur { background-color: #f9e2f7; color: #4f309a; }
 
 /* Modal Styling */
 .modal-overlay {
@@ -726,7 +731,7 @@ tr:hover td {
     align-items: center;
     gap: 10px;
     box-shadow: var(--shadow-lg);
-    z-index: 200;
+    z-index: 9999999;
     transform: translateY(100px);
     opacity: 0;
     transition: all 0.3s ease;
@@ -909,7 +914,7 @@ tr:hover td {
 }
 /* HEHE */
 /* Layout dasar Sidebar */
-sidebar {
+/* sidebar {
     width: 260px;
     height: 100vh;
     transition: all 0.3s ease-in-out;
@@ -918,7 +923,7 @@ sidebar {
     justify-content: space-between;
     overflow: hidden;
     white-space: nowrap;
-}
+} */
 
 /* Header & Tombol Toggle */
 .sidebar-header {
@@ -1033,7 +1038,7 @@ sidebar.collapsed .user-card {
     text-align: center;
     font-weight: bold;
     font-size: 18px;
-    text-decoration: underline;
+    /* text-decoration: underline; */
     margin-bottom: 10px;
     letter-spacing: 1px;
 }
@@ -1296,3 +1301,50 @@ sidebar.collapsed .user-card {
     font-weight: bold;
     pointer-events: none;
 }
+
+.combobox-wrapper {
+    position: relative;
+    flex: 1;
+}
+
+.combobox-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    max-height: 150px;
+    overflow-y: auto;
+    display: none;
+}
+
+.combobox-dropdown.show {
+    display: block;
+}
+
+.combobox-option {
+    padding: 10px 14px;
+    font-size: 0.875rem;
+    color: #374151;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.combobox-option:hover {
+    background-color: #f3f4f6;
+    color: #111827;
+}
+
+.month-picker-bar {
+    cursor: pointer;
+}
+
+.month-picker-bar i {
+    pointer-events: none;
+}
+
+/* SIDEBAR */

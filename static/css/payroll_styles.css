@@ -1,0 +1,616 @@
+.attendance-summary {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #374151;
+}
+
+.attendance-row {
+    display: grid;
+    grid-template-columns: 60px 12px auto;
+    align-items: center;
+    margin: 4px 0;
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+.attendance-label {
+    font-weight: 500;
+}
+
+.attendance-separator {
+    text-align: center;
+}
+
+.attendance-value {
+    font-weight: 600;
+}
+
+/* ==========================================================
+   SLIP GAJI MODAL
+========================================================== */
+
+.slip-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.slip-modal.show {
+    display: flex;
+}
+
+.slip-modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(3px);
+}
+
+.slip-modal-container {
+    position: relative;
+    z-index: 2;
+
+    width: min(1100px, 95vw);
+    height: min(95vh, 950px);
+
+    background: #f1f5f9;
+    border-radius: 10px;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+    
+    max-height: 85vh;    /* Batasi tinggi modal maksimal 85% dari tinggi layar */
+    overflow-y: auto;     /* Munculkan scroll saat isi melebihi 85vh */
+}
+
+
+/* ==========================================================
+   HEADER MODAL
+========================================================== */
+
+.slip-modal-header {
+    height: 72px;
+
+    padding: 0 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+
+    flex-shrink: 0;
+}
+
+.slip-modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.slip-modal-header span {
+    display: block;
+    margin-top: 3px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.slip-modal-close {
+    width: 36px;
+    height: 36px;
+
+    border: none;
+    border-radius: 6px;
+
+    background: #f3f4f6;
+    color: #374151;
+
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 16px;
+}
+
+.slip-modal-close:hover {
+    background: #e5e7eb;
+}
+
+
+/* ==========================================================
+   PREVIEW AREA
+========================================================== */
+
+#slipPreview {
+    max-height: 80vh; /* Sesuaikan tinggi batas (misal: 500px atau 80vh) */
+    overflow-y: auto;  /* Mengaktifkan scroll atas-bawah saat konten melebihi tinggi */
+    margin: 0 auto;
+}
+
+
+/* ==========================================================
+   SLIP PAPER
+========================================================== */
+
+.slip-paper {
+    width: 794px;
+    min-height: 1123px;
+
+    background: #ffffff;
+
+    color: #111111;
+
+    font-family: Arial, Helvetica, sans-serif;
+
+    font-size: 12px;
+
+    border: 1px solid #111111;
+
+    box-sizing: border-box;
+
+    flex-shrink: 0;
+}
+
+
+/* ==========================================================
+   TITLE
+========================================================== */
+
+.slip-title {
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-bottom: 1px solid #111111;
+
+    font-size: 22px;
+    font-weight: 700;
+}
+
+
+/* ==========================================================
+   IDENTITAS
+========================================================== */
+
+.slip-identity {
+    border-bottom: 1px solid #111111;
+}
+
+.slip-company {
+    padding: 5px 8px;
+
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.slip-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    min-height: 95px;
+}
+
+.slip-info-left,
+.slip-info-right {
+    padding: 2px 8px;
+}
+
+.slip-info-row {
+    display: grid;
+
+    grid-template-columns: 120px 12px 1fr;
+
+    align-items: center;
+
+    min-height: 22px;
+
+    font-size: 13px;
+}
+
+.slip-info-row strong {
+    font-weight: 700;
+}
+
+
+/* ==========================================================
+   BODY
+========================================================== */
+
+.slip-body {
+    display: grid;
+
+    grid-template-columns: 1.25fr 1fr;
+
+    min-height: 450px;
+}
+
+.slip-left {
+    border-right: 1px solid #111111;
+}
+
+.slip-right {
+    min-width: 0;
+}
+
+
+/* ==========================================================
+   SECTION TITLE
+========================================================== */
+
+.slip-section-title {
+    padding: 10px 8px 7px;
+
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.deduction-title {
+    border-top: 1px solid #111111;
+}
+
+
+/* ==========================================================
+   SLIP LINE
+========================================================== */
+
+.slip-earning-list,
+.slip-left {
+    box-sizing: border-box;
+}
+
+.slip-line {
+    display: grid;
+
+    grid-template-columns: 1fr 12px 28px 90px;
+
+    align-items: center;
+
+    min-height: 25px;
+
+    padding: 0 8px;
+
+    font-size: 12px;
+}
+
+.slip-line > span:first-child {
+    white-space: nowrap;
+}
+
+.slip-line strong {
+    text-align: right;
+}
+
+
+/* ==========================================================
+   DYNAMIC ITEMS
+========================================================== */
+
+.slip-dynamic-item {
+    display: grid;
+
+    grid-template-columns: 1fr 12px 28px 90px;
+
+    align-items: center;
+
+    min-height: 25px;
+
+    padding: 0 8px;
+
+    font-size: 12px;
+}
+
+.slip-dynamic-item strong:last-child {
+    text-align: right;
+}
+
+
+/* ==========================================================
+   TOTAL
+========================================================== */
+
+.slip-total-row,
+.slip-total-deduction {
+    margin-top: 12px;
+
+    min-height: 34px;
+
+    padding: 6px 8px;
+
+    border-top: 1px solid #111111;
+    border-bottom: 1px solid #111111;
+
+    display: grid;
+
+    grid-template-columns: 1fr 12px 28px 90px;
+
+    align-items: center;
+
+    font-size: 13px;
+}
+
+.slip-total-row strong:last-child,
+.slip-total-deduction strong:last-child {
+    text-align: right;
+}
+
+.slip-sisa-kasbon {
+    /* margin-top: 6px; */
+
+    min-height: 34px;
+
+    padding: 6px 8px;
+
+    /* border-top: 1px solid #111111; */
+    border-bottom: 1px solid #111111;
+
+    display: grid;
+
+    grid-template-columns: 1fr 12px 28px 90px;
+
+    align-items: center;
+
+    font-size: 13px;
+}
+
+/* ==========================================================
+   ATTENDANCE
+========================================================== */
+
+.slip-attendance-box {
+    border-bottom: 1px solid #111111;
+}
+
+.slip-attendance-row {
+    display: grid;
+
+    grid-template-columns: 1fr 12px 90px;
+
+    align-items: center;
+
+    min-height: 27px;
+
+    padding: 0 7px;
+
+    border-bottom: 1px solid #111111;
+
+    font-size: 12px;
+}
+
+.slip-attendance-row strong {
+    text-align: right;
+}
+
+
+/* ==========================================================
+   FOOTER
+========================================================== */
+
+.slip-footer {
+    border-top: 1px solid #111111;
+}
+
+.slip-net-row {
+    display: grid;
+
+    grid-template-columns: 1fr 12px 28px 120px;
+
+    align-items: center;
+
+    padding: 8px;
+
+    font-size: 16px;
+    font-weight: 700;
+
+    border-bottom: 1px solid #111111;
+}
+
+.slip-net-row strong:last-child {
+    text-align: right;
+}
+
+.slip-note {
+    padding: 8px;
+
+    font-size: 12px;
+    font-weight: 600;
+
+    border-bottom: 1px solid #111111;
+}
+
+.slip-received {
+    padding: 8px;
+
+    font-size: 12px;
+}
+
+
+/* ==========================================================
+   MODAL FOOTER
+========================================================== */
+
+.slip-modal-footer {
+    min-height: 64px;
+
+    padding: 12px 20px;
+
+    background: #ffffff;
+
+    border-top: 1px solid #e5e7eb;
+
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+
+    gap: 8px;
+
+    flex-shrink: 0;
+}
+
+.slip-modal {
+    position: fixed;
+    inset: 0;
+
+    display: none;
+    align-items: center;
+    justify-content: center;
+
+    z-index: 9999;
+}
+
+.slip-modal.show {
+    display: flex;
+}
+
+.slip-modal-overlay {
+    position: absolute;
+    inset: 0;
+
+    background: rgba(0, 0, 0, 0.55);
+}
+
+/* .slip-modal-container {
+    position: relative;
+    z-index: 1;
+
+    width: 900px;
+    max-width: 95vw;
+    max-height: 95vh;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #fff;
+    border-radius: 12px;
+
+    overflow: hidden;
+
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+} */
+
+/* HEADER */
+
+.slip-modal-header {
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 15px 20px;
+
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+}
+
+.slip-modal-header h3 {
+    margin: 0;
+}
+
+/* FOOTER */
+
+.slip-modal-footer {
+    flex-shrink: 0;
+
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+
+    padding: 15px 20px;
+
+    background: #fff;
+    border-top: 1px solid #ddd;
+}
+
+/* ==========================================================
+   ATURAN KHUSUS SAAT DICETAK (PRINT)
+   ========================================================== */
+@media print {
+    /* 1. Paksa cetak latar belakang & warna (Background & Border) */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* 2. Hilangkan header/footer bawaan browser (seperti URL/tanggal) & set margin kertas */
+    @page {
+        size: A4 portrait;
+        margin: 10mm;
+    }
+
+    /* 3. Sembunyikan seluruh isi body utama */
+    body > * {
+        display: none !important;
+    }
+
+    /* 4. Tampilkan kontainer cetak */
+    #print-slip-container {
+        display: block !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+    }
+
+    /* 5. Buat elemen anak terlihat TANPA merusak layout Flexbox / Grid asli */
+    #print-slip-container * {
+        visibility: visible !important;
+    }
+
+    /* 6. Reset batas tinggi & scrollbar agar slip tercetak utuh */
+    #print-slip-container #slipPreview,
+    #print-slip-container .slip-paper {
+        max-height: none !important;
+        height: auto !important;
+        overflow: visible !important;
+        box-shadow: none !important;
+        border: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+}
+
+/* 1. Pembungkus Utama Modal */
+.slip-modal-container {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;    /* Batasi tinggi maksimal modal di layar */
+    overflow: hidden;    /* Matikan scroll pada container utama */
+}
+
+/* 2. Header Tetap Diam di Atas */
+.slip-modal-header {
+    flex-shrink: 0;      /* Mencegah header memenci/tertekan */
+    background: #ffffff; /* Beri background agar teks scroll tidak menembus header */
+    z-index: 10;
+}
+
+/* 3. Area Slip (Hanya Bagian Ini yang Scroll) */
+#slipPreview {
+    flex: 1;
+    overflow-y: auto;    /* Mengaktifkan scrollbar vertikal khusus area ini */
+    min-height: 0;       /* Wajib ada agar Flexbox mau membuat scrollbar */
+}
+
+/* 4. Footer Tetap Diam di Bawah */
+.slip-modal-footer {
+    flex-shrink: 0;      /* Mencegah footer memencil/tertekan */
+    background: #ffffff;
+}

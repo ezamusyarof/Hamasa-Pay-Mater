@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HamasaPayMaster - Sistem Manajemen Gaji Karyawan</title>
+    <!-- Font & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf.js for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- html2canvas for PNG export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/payroll_styles.css') }}">
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <sidebar id="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <span class="logo-text">Hamasa<span>PayMaster</span></span>
+                <button class="btn-toggle" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars" id="toggle-icon"></i>
+                </button>
+            </div>
+            <ul class="nav-list">
+                <li class="nav-item" data-page="dashboard">
+                    <a href="/dashboard"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                </li>
+                <li class="nav-item" active data-page="karyawan">
+                    <a href="/employees"><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
+                </li>
+                <li class="nav-item" data-page="kehadiran">
+                    <a href="/attendance"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
+                </li>
+                <li class="nav-item active" data-page="payroll">
+                    <a href="/payroll"><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="avatar">HIM</div>
+                <div class="user-info">
+                    <span class="user-name">Manager</span>
+                    <span class="user-role">Hamasa Iparna Mandiri</span>
+                </div>
+            </div>
+        </div>
+    </sidebar>
+
+    <!-- MAIN CONTENT -->
+    <main>
+        <header>
+            <div class="header-title">
+                <h1 id="page-title">Penggajian Karyawan</h1>
+            </div>
+            <div class="header-actions">
+                <div class="month-picker-bar" onclick="openMonthPicker()">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <input type="month" 
+                        id="selectPeriode"
+                        class="month-input"
+                        value="{{periode}}" 
+                        onchange="loadPageData('payroll',this.value)">
+                </div>
+            </div>
+        </header>
+
+        <div class="content-area">
+
+            <!-- VIEW 4: PENGGAJIAN (PAYROLL) -->
+            <section id="view-payroll">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">Proses Penggajian Periode Bulan Ini</div>
+                            <p style="font-size: 12px; color: var(--text-muted);">Perhitungan otomatis gaji bersih berdasarkan absensi, tunjangan, dan bonus.</p>
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary" onclick="deleteAllPayrollByMonth()"><i class="fa-solid fa-trash"></i> Hapus Payroll Bulan Ini</button>
+                            <button class="btn btn-primary" onclick="createAllPayrollByMonth()"><i class="fa-solid fa-book"></i> Buka Payroll Bulan Ini</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nama</th>
+                                    <th>Gaji Pokok</th>
+                                    <th>Penambahan</th>
+                                    <th>Pengurangan</th>
+                                    <th>Gaji Kotor</th>
+                                    <th>PPh 21</th>
+                                    <th>Gaji Bersih (THP)</th>
+                                    <th>Aksi Slip Gaji</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payroll-table-body">
+                                {% for emp in employees_json %}
+                                <tr class="align-top" style="cursor: pointer;">
+                                    <td class="align-top" style="padding: 12px 18px; vertical-align: top !important; max-width: 180px;">
+                                        <div class="fw-bold" style="color: #111827; font-size: 13px;">{{emp.name}}</div>
+                                        <div class="text-muted mt-2" style="font-size: 12px; margin: 5px 0px;">{{emp.position}}</div>
+                                        <div class="mt-3 attendance-summary">
+                                            <div class="attendance-row status-present">
+                                                <span class="attendance-label">Hadir</span>
+                                                <span class="attendance-separator">:</span>
+                                                <span class="attendance-value">{{ emp.att.H }} Hari</span>
+                                            </div>
+                                            
+                                            {% if emp.att.T > 0 %}
+                                            <div class="attendance-row status-late">
+                                                <span class="attendance-label">Terlambat</span>
+                                                <span class="attendance-separator">:</span>
+                                                <span class="attendance-value">{{ emp.att.T }} Hari</span>
+                                            </div>
+                                            {% endif %}
+
+                                            {% if emp.att.S > 0 %}
+                                            <div class="attendance-row status-sick">
+                                                <span class="attendance-label">Sakit</span>
+                                                <span class="attendance-separator">:</span>
+                                                <span class="attendance-value">{{ emp.att.S }} Hari</span>
+                                            </div>
+                                            {% endif %}
+
+                                            {% if emp.att.A > 0 %}
+                                            <div class="attendance-row status-absen">
+                                                <span class="attendance-label">Absen</span>
+                                                <span class="attendance-separator">:</span>
+                                                <span class="attendance-value">{{ emp.att.A }} Hari</span>
+                                            </div>
+                                            {% endif %}
+
+                                            {% if emp.att.L > 0 %}
+                                            <div class="attendance-row status-lembur">
+                                                <span class="attendance-label">Lembur</span>
+                                                <span class="attendance-separator">:</span>
+                                                <span class="attendance-value">{{ emp.att.L }} Hari</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+
+                                    <td class="align-top" style="padding: 12px 8px; vertical-align: top !important;">
+                                        <div class="harga fw-bold" style="font-size: 13px;">{{emp.basic_salary}}</div>
+                                    </td>
+
+                                    <td class="align-top" style="padding: 12px 8px; vertical-align: top !important; min-width: 190px;" onclick="event.stopPropagation();">
+                                        <div class="harga fw-bold" style="font-size: 13px;">{{ emp.tunjanganList | sum(attribute='amount') }}</div>                       
+                                        
+                                        
+                                        <div style="height: 10px;"></div>
+                                        <button class="btn btn-success btn-sm" 
+                                                style="display: block !important; width: 100% !important; text-align: center !important; font-size: 12px; padding: 10px 8px; border-radius: 6px; background-color: #10B981; border: none; font-weight: 500; margin-bottom: 14px;" data-att='{{ emp.att }}'
+                                                onclick="openKomponenModal('{{emp.id}}', 'tunjangan', '{{emp.at}}', '{{ periode }}')">
+                                            + Penambahan
+                                        </button>
+
+                                        {% for tunjangan in emp.tunjanganList %}
+                                        <div style="display: flex; flex-direction: column; gap: 10px; max-width: 100%;">
+                                            <div id="tunjangan-normal-{{ emp.id }}-{{ loop.index0 }}" style="background-color: #D8F9E8; padding: 6px 8px; border-radius: 6px; border: 1px solid #6fe6a8; margin-bottom: 6px; margin-top: 2px;">
+                                                <div class="text-muted text-truncate" style="font-size: 11px; line-height: 1.2; margin-bottom: 2px;">
+                                                    {{tunjangan.name}}
+                                                </div>
+                                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                    <span class="harga fw-bold" style="font-size: 13px; white-space: nowrap; color: #166534;">
+                                                        {{tunjangan.amount}}
+                                                    </span>
+                                                    <button type="button" 
+                                                        class="btn btn-success btn-sm p-0 d-flex align-items-center justify-content-center" 
+                                                        style="width: 18px; height: 18px; min-width: 13px; font-size: 10px; border-radius: 3px; background-color: #0d9d6d; border: none; flex-shrink: 0;" 
+                                                        onclick="setDeleteConfirm('{{emp.id}}', 'tunjangan', '{{loop.index0}}')">-</button>
+                                                </div>
+                                            </div>
+                                            <div id="tunjangan-delete-{{ emp.id }}-{{ loop.index0 }}" style="background-color: #ff0000; border: 1px solid #ff0000; padding: 5px 6px; border-radius: 6px; margin-bottom: 6px; margin-top: 4px; display: none; align-items: center; justify-content: space-between; gap: 6px;">
+                                                <button type="button" 
+                                                        onclick="executeRemoveItem('{{tunjangan.id}}')"
+                                                        style="flex: 1; background-color: #ff0000; color: #ffffff; border: none; padding: 9px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                                                    Hapus Data
+                                                </button>
+                                                <button type="button" 
+                                                        onclick="cancelDeleteConfirm('{{emp.id}}', 'tunjangan', '{{loop.index0}}')"
+                                                        style="background-color: rgba(255,255,255,0.25); color: #ffffff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer;">
+                                                    x
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </td>
+
+                                    <td class="align-top" style="padding: 12px 8px; vertical-align: top !important; min-width: 190px;" onclick="event.stopPropagation();">
+                                        <div class="fw-bold" style="font-size: 13px;">-
+                                            <span class="harga">{{ emp.potonganList | sum(attribute='amount') }}</span>
+                                        </div>
+                                        
+                                        <div style="height: 10px;"></div>
+                                        <button class="btn btn-danger btn-sm" 
+                                                style="display: block !important; width: 100% !important; text-align: center !important; font-size: 12px; padding: 10px 8px; border-radius: 6px; background-color: #f87171; border: none; font-weight: 500; margin-bottom: 14px;" 
+                                                onclick="openKomponenModal('{{emp.id}}', 'potongan', '{{ emp.at }}', '{{ periode }}')">
+                                            + Pengurangan
+                                        </button>
+                                        {% for potongan in emp.potonganList %}
+                                        <div style="display: flex; flex-direction: column; gap: 10px; max-width: 100%;">
+                                            <div id="potongan-normal-{{ emp.id }}-{{ loop.index0 }}" style="background-color: #fef2f2; padding: 6px 8px; border-radius: 6px; border: 1px solid #fecaca; margin-bottom: 6px; margin-top: 2px;">
+                                                <div class="text-truncate" style="font-size: 11px; line-height: 1.2; color: #ef4444; margin-bottom: 2px;">
+                                                    {{potongan.name}}
+                                                </div>
+                                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                    <span class="fw-bold" style="font-size: 13px; white-space: nowrap; color: #ef4444;">
+                                                        -<span class="harga">{{potongan.amount}}</span>
+                                                    </span>
+                                                    <button type="button" 
+                                                            class="btn btn-danger btn-sm p-0 d-flex align-items-center justify-content-center" 
+                                                            style="width: 18px; height: 18px; min-width: 13px; font-size: 10px; border-radius: 3px; background-color: #f87171; border: none; flex-shrink: 0;" 
+                                                            onclick="setDeleteConfirm('{{emp.id}}', 'potongan', '{{loop.index0}}')">-</button>
+                                                </div>
+                                            </div>
+
+                                            <div id="potongan-delete-{{ emp.id }}-{{ loop.index0 }}" style="background-color: #ff0000; border: 1px solid #ff0000; padding: 5px 6px; border-radius: 6px; margin-bottom: 6px; margin-top: 4px; display: none; align-items: center; justify-content: space-between; gap: 6px;">
+                                                <button type="button" 
+                                                        onclick="executeRemoveItem('{{ potongan.id }}')"
+                                                        style="flex: 1; background-color: #ff0000; color: #ffffff; border: none; padding: 9px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                                                    Hapus Data
+                                                </button>
+                                                <button type="button" 
+                                                        onclick="cancelDeleteConfirm('{{emp.id}}', 'potongan', '{{loop.index0}}')"
+                                                        style="background-color: rgba(255,255,255,0.25); color: #ffffff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer;">
+                                                    x
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </td>
+
+                                    <td class="align-top" style="padding: 12px 8px; vertical-align: top !important;">
+                                        <div class="fw-bold" style="font-size: 13px; color: #111827;"><span class="harga">{{emp.thp}}</span></div>
+                                    </td>
+
+                                    <td class="align-top" style="padding: 12px 8px; vertical-align: top !important;">
+                                        <div class="fw-bold" style="font-size: 13px; color: #111827;">- <span class="harga">{{emp.pph21}}</span></div>
+                                    </td>
+
+                                    <td class="align-top" style="padding: 12px 8px; vertical-align: top !important;">
+                                        <div class="harga fw-bold" style="font-size: 13px; color: #111827;">{{emp.thp_after_tax}}</div>
+                                    </td>
+
+                                    <td class="align-top" style="padding: 12px 8px; vertical-align: top !important;" onclick="event.stopPropagation();">
+                                        <div class="d-flex gap-1">
+                                            <button class="btn btn btn-secondary" 
+                                                    style="padding: 8px 12px; font-size: 12px; border-radius: 6px;" 
+                                                    onclick="openSlipModal('{{emp.id}}')">
+                                                <i class="fa-solid fa-eye "></i> Preview
+                                            </button>
+                                            <button class="btn btn-primary" 
+                                                    style="padding: 8px 12px; font-size: 12px; border-radius: 6px; border: none; color:#fff;" 
+                                                    onclick="sendSingleWhatsapp('${emp.id}')">
+                                                <i class="fa-brands fa-whatsapp"></i> Whatsapp
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- ==========================================================
+        MODAL PREVIEW SLIP GAJI
+    ========================================================== -->
+    <div id="slipModal" class="slip-modal">
+
+        <!-- OVERLAY -->
+        <div
+            class="slip-modal-overlay"
+            onclick="closeSlipModal()">
+        </div>
+
+        <!-- CONTAINER -->
+        <div class="slip-modal-container">
+
+            <!-- HEADER MODAL -->
+            <div class="slip-modal-header">
+                <h3>Preview Slip Gaji</h3>
+
+                <div>
+
+                    <button
+                        style="width:20px;margin-left: 21px;"
+                        type="button"
+                        class="btn-close"
+                        onclick="closeSlipModal()">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+
+            <!-- ================================================== -->
+            <!-- ISI SLIP YANG AKAN DIPRINT -->
+            <!-- ================================================== -->
+
+            <div id="slipPreview" class="slip-paper max-h-[80vh] overflow-y-auto">
+
+                <!-- JUDUL -->
+                <div class="slip-title">SLIP GAJI KARYAWAN</div>
+
+                <!-- IDENTITAS -->
+                <div class="slip-identity">
+
+                    <div class="slip-company">
+                        PT. Hamasa Iparna Mandiri
+                    </div>
+
+                    <div class="slip-info-grid">
+
+                        <div class="slip-info-left">
+
+                            <div class="slip-info-row">
+                                <span>No.</span>
+                                <b>:</b>
+                                <strong id="slip-no">-</strong>
+                            </div>
+
+                            <div class="slip-info-row">
+                                <span>Nama</span>
+                                <b>:</b>
+                                <strong id="slip-name">-</strong>
+                            </div>
+
+                            <div class="slip-info-row">
+                                <span>Bagian</span>
+                                <b>:</b>
+                                <strong id="slip-position">-</strong>
+                            </div>
+
+                        </div>
+
+                        <div class="slip-info-right">
+
+                            <div class="slip-info-row">
+                                <span>Tanggal Masuk:</span>
+                                <b>:</b>
+                                <strong id="slip-tgl-masuk">-</strong>
+                            </div>
+
+                            <div class="slip-info-row">
+                                <span>Gaji Pokok:</span>
+                                <b>:</b>
+                                <strong>Rp <span id="slip-basic-salary-top"></span></strong>
+                            </div>
+
+                            <div class="slip-info-row">
+                                <span>Periode:</span>
+                                <b>:</b>
+                                <strong id="slip-periode">-</strong>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- BODY SLIP -->
+                <div class="slip-body">
+
+                    <!-- KIRI -->
+                    <div class="slip-left">
+                        
+
+                        <div class="slip-section-title">
+                            GAJI KOTOR
+                        </div>
+
+                        <div class="slip-earning-list">
+
+                            <div class="slip-line">
+                                <span>A. GAJI POKOK</span>
+                                <b>:</b>
+                                <span>Rp</span>
+                                <strong id="slip-basic-salary">-</strong>
+                            </div>
+
+                            <!-- TUNJANGAN -->
+                            <div id="slip-tunjangan-container"></div>
+
+                            <!-- BONUS -->
+                            <div id="slip-bonus-container"></div>
+
+                        </div>
+
+                        <div class="slip-total-row">
+                            <strong>TOTAL GAJI KOTOR</strong>
+                            <b>:</b>
+                            <span>Rp</span>
+                            <strong id="slip-total-earning">-</strong>
+                        </div>
+
+                    </div>
+
+
+                    <!-- KANAN -->
+                    <div class="slip-right">
+
+                        <div class="slip-attendance-box">
+
+                            <div class="slip-attendance-row">
+                                <span>JUMLAH HARI KERJA BULAN INI</span>
+                                <b>:</b>
+                                <strong id="slip-work-days">-</strong>
+                            </div>
+
+                            <div class="slip-attendance-row">
+                                <span>Hadir</span>
+                                <b>:</b>
+                                <strong id="slip-hadir">-</strong>
+                            </div>
+
+                            <div class="slip-attendance-row">
+                                <span>Terlambat</span>
+                                <b>:</b>
+                                <strong id="slip-terlambat">-</strong>
+                            </div>
+
+                            <div class="slip-attendance-row">
+                                <span>Sakit</span>
+                                <b>:</b>
+                                <strong id="slip-sakit">-</strong>
+                            </div>
+
+                            <div class="slip-attendance-row">
+                                <span>Absen</span>
+                                <b>:</b>
+                                <strong id="slip-absen">-</strong>
+                            </div>
+
+                            <div class="slip-attendance-row">
+                                <span>Lembur</span>
+                                <b>:</b>
+                                <strong id="slip-lembur">-</strong>
+                            </div>
+
+                            <div class="slip-attendance-row">
+                                <span>Jumlah Kas Bon</span>
+                                <b>:</b>
+                                <strong id="slip-jumlah-kasbon">-</strong>
+                            </div>
+
+                            <div class="slip-attendance-row">
+                                <span>Jumlah Cicilan s.d Bulan Lalu</span>
+                                <b>:</b>
+                                <strong id="slip-jumlah-cicilan">-</strong>
+                            </div>
+
+                        </div>
+
+
+                        <div class="slip-section-title deduction-title">
+                            POTONGAN
+                        </div>
+
+                        <!-- PPH 21 -->
+                        <div class="slip-line">
+                            <span>A. PPH PASAL 21</span>
+                            <b>:</b>
+                            <span>Rp</span>
+                            <strong id="slip-pph21">-</strong>
+                        </div>
+
+                        <!-- POTONGAN LAIN -->
+                        <div id="slip-potongan-container"></div>
+
+                        <div class="slip-total-deduction">
+                            <strong>TOTAL POTONGAN</strong>
+                            <b>:</b>
+                            <span>Rp</span>
+                            <strong id="slip-total-deduction">-</strong>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- FOOTER SLIP -->
+                <div class="slip-footer">
+
+                    <div class="slip-net-row">
+                        <strong>GAJI BERSIH</strong>
+                        <b>:</b>
+                        <span>Rp</span>
+                        <strong id="slip-net-salary">-</strong>
+                    </div>
+
+                    <div class="slip-sisa-kasbon">
+                        <strong>SISA KASBON</strong>
+                        <b>:</b>
+                        <span>Rp</span>
+                        <strong id="slip-sisa-kasbon">-</strong>
+                    </div>
+
+                    <!-- <div class="slip-note">
+                        Harap dihitung didepan petugas pembayaran,
+                        komplain tidak diterima setelah anda meninggalkan petugas.
+                    </div> -->
+
+                    <div class="slip-received">
+                        DITERIMA : <span id="slip-received-date">-</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- FOOTER MODAL -->
+            <div class="slip-modal-footer">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    onclick="closeSlipModal()">
+                    Tutup
+                </button>
+
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    onclick="printSlip()">
+                    <i class="fa-solid fa-image"></i>
+                    Download PNG
+                </button>
+
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    onclick="printSlip()">
+                    <i class="fa-solid fa-download"></i>
+                    Download PDF
+                </button>
+
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    onclick="printSlip()">
+                    <i class="fa-solid fa-print"></i>
+                    Cetak Slip Gaji
+                </button>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION SUCCESS -->
+    <div class="toast" id="toast-success">
+        <i class="fa-solid fa-circle-check text-green"></i>
+        <span id="toast-message-success">Pesan notifikasi</span>
+    </div>
+
+    <!-- TOAST NOTIFICATION FAILED -->
+    <div class="toast toast-danger" id="toast-failed">
+        <i class="fa-solid fa-circle-xmark text-red"></i>
+        <span id="toast-message-failed">Gagal memproses data. Silakan coba lagi!</span>
+    </div>
+
+    <!-- MODAL TAMBAH TUNJANGAN CUSTOM -->
+    <div id="modalTambahKomponen" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="custom-modal-box">
+            <h3 class="custom-modal-title">Penambahan</h3>
+            <input type="hidden" id="komponenEmpId">
+
+            <!-- 2. Nama Komponen -->
+            <div class="custom-form-group">
+                <label class="custom-form-label">Nama Komponen</label>
+                
+                <div class="input-inline-wrapper">
+                    <!-- Wrapper utama diberi ID untuk deteksi klik di luar -->
+                    <div class="combobox-wrapper" id="wrapperNama">
+                        <input type="text" 
+                            id="namaKomponen" 
+                            class="custom-form-input" 
+                            placeholder="Cari atau ketik nama komponen..." 
+                            autocomplete="off">
+
+                        <div class="combobox-dropdown" id="dropdownNama">
+                            <!-- Akan diisi oleh JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="custom-row-calc">
+                <div class="custom-col-flex">
+                    <label class="custom-form-label">Nominal</label>
+                
+                    <div class="input-inline-wrapper">
+                        <!-- Wrapper utama diberi ID untuk deteksi klik di luar -->
+                        <div class="combobox-wrapper" id="wrapperNominal">
+                            <span class="custom-input-prefix" style="padding-top:10px;">Rp</span>
+                            <input type="text" 
+                                id="nominalKomponen" 
+                                class="custom-form-input has-prefix" 
+                                placeholder="0" 
+                                oninput="formatRupiahInput(this)" 
+                                autocomplete="off">
+                            
+                            <!-- Menu Dropdown Melayang -->
+                            <div class="combobox-dropdown" id="dropdownNominal">
+                                <div class="combobox-option" data-value="25000">Rp 25.000</div>
+                                <div class="combobox-option" data-value="2% Gapok">2% Gapok</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="custom-col-x">x</div>
+                
+                <div class="custom-col-flex">
+                    <label class="custom-form-label">Satuan</label>
+
+                    <div class="input-inline-wrapper">
+                        <!-- Wrapper utama diberi ID untuk deteksi klik di luar -->
+                        <div class="combobox-wrapper" id="wrapperSatuan">
+                            <input type="text" 
+                                id="satuanKomponen" 
+                                class="custom-form-input" 
+                                placeholder="0" 
+                                autocomplete="off">
+                            
+                            <!-- Menu Dropdown Melayang -->
+                            <div class="combobox-dropdown" id="dropdownSatuan">
+                                <div class="combobox-option" data-value="1">1</div>
+                                <div class="combobox-option" data-value="Total Masuk Kerja">Total Masuk Kerja</div>
+                                <div class="combobox-option" data-value="Total Absen">Total Absen</div>
+                                <div class="combobox-option" data-value="Total Terlambat">Total Terlambat</div>
+                                <div class="combobox-option" data-value="Total Lembur">Total Lembur</div>
+                            </div>
+                            <!-- Menu Dropdown Melayang -->
+                            <div class="combobox-dropdown" id="dropdownSatuanBonus">
+                                <div class="combobox-option" data-value="1">1</div>
+                                <div class="combobox-option" data-value="Total Masuk Kerja">Total Masuk Kerja</div>
+                                <div class="combobox-option" data-value="Total Absen">Total Absen</div>
+                                <div class="combobox-option" data-value="Total Terlambat">Total Terlambat</div>
+                                <div class="combobox-option" data-value="Total Lembur">Total Lembur</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="custom-btn-submit">
+                + Tambah
+            </button>
+        </div>
+    </div>
+
+    <script id="employees-data" type="application/json">
+        {{ employees_json | tojson }}
+    </script>
+
+    <script id="payroll-config" type="application/json">
+        {
+            "periode": "{{ periode }}",
+            "year": "{{ year }}",
+            "month": "{{ month_number }}"
+        }
+    </script>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/payroll_components.js')}}"></script>
+    <script src="{{ url_for('static', filename='js/payroll.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/render_payroll.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/slip.js') }}"></script>
+
+</body>
+</html>

@@ -1,0 +1,11 @@
+.chart-card {
+    position: relative;
+    height: 380px;
+}
+
+#payrollChart,
+#attendanceChart {
+    width: 100% !important;
+    height: 100% !important;
+    padding-bottom: 50px;
+}

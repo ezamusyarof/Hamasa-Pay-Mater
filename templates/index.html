@@ -13,7 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- html2canvas for PNG export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body data-page="{{ active_page|default('dashboard') }}">
 
@@ -27,17 +27,17 @@
                 </button>
             </div>
             <ul class="nav-list">
-                <li class="nav-item active" data-page="dashboard" onclick="event.preventDefault(); switchNav(this, 'dashboard')">
-                    <a href="{{ url_for('dashboard_page') }}"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                <li class="nav-item" data-page="dashboard">
+                    <a href="/dashboard"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
                 </li>
-                <li class="nav-item" data-page="karyawan" onclick="event.preventDefault(); switchNav(this, 'karyawan')">
-                    <a href="{{ url_for('employees_page') }}"><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
+                <li class="nav-item" active data-page="karyawan">
+                    <a href="/employees"><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
                 </li>
-                <li class="nav-item" data-page="kehadiran" onclick="event.preventDefault(); switchNav(this, 'kehadiran')">
-                    <a href="{{ url_for('attendance_page') }}"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
+                <li class="nav-item" data-page="kehadiran">
+                    <a href="/attendance"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
                 </li>
-                <li class="nav-item" data-page="payroll" onclick="event.preventDefault(); switchNav(this, 'payroll')">
-                    <a href="{{ url_for('payroll_page') }}"><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
+                <li class="nav-item" data-page="payroll">
+                    <a href="/payroll"><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
                 </li>
             </ul>
         </div>
@@ -65,7 +65,7 @@
                     <input type="month" 
                         id="selectPeriode" 
                         class="month-input" 
-                        value="2026-08" 
+                        value="{{year}}-{{month_number}}" 
                         onchange="loadAttendanceData(this.value)">
                 </div>
 
@@ -170,7 +170,7 @@
                     <div class="card">
                         <div class="card-header">
                             <div class="card-title">Rekap Kehadiran Karyawan</div>
-                            <span class="text-muted" style="font-size: 12px;">Potongan Denda Late: Rp 25.000 / Jam | Absen: Gaji/22 Per Hari</span>
+                            <span class="text-muted" style="font-size: 12px;">Potongan Denda Late: Rp 25.000 / Hari | Absen: Gaji/22 Per Hari</span>
                         </div>
                         <div class="table-responsive">
                             <table>
@@ -178,7 +178,7 @@
                                     <tr>
                                         <th>Nama Karyawan</th>
                                         <th>Hadir (Hari)</th>
-                                        <th>Terlambat (Jam)</th>
+                                        <th>Terlambat (Hari)</th>
                                         <th>Sakit (Hari)</th>
                                         <th>Absen (Hari)</th>
                                     </tr>
@@ -347,93 +347,6 @@
         </div>
     </div>
 
-    <!-- MODAL PREVIEW SLIP GAJI -->
-    <div class="modal-overlay" id="slipModal">
-        <div class="modal" style="max-width: 650px;">
-            <div class="modal-header">
-                <div class="modal-title">Pratinjau Slip Gaji Karyawan</div>
-                <button class="modal-close" onclick="closeSlipModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="payslip-container" id="payslip-render-area" style="background: #fff; padding: 20px; border-radius: 8px;">
-                    <div class="payslip-header" style="display:flex; justify-content:space-between; border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
-                        <div>
-                            <div class="payslip-company" style="font-weight:700; font-size:16px; color:#0f172a;">PT HAMASA IPARNA MANDIRI</div>
-                            <div style="font-size: 11px; color: #64748b;">Jl. Ciherang Raya No.3A, RT.004/RW.007, Sukatani, Depok</div>
-                        </div>
-                        <div style="text-align: right;">
-                            <div class="payslip-title" style="font-weight:700; font-size:16px; color:#2563eb;">SLIP GAJI</div>
-                            <div style="font-size: 11px; color: #64748b;" id="slip-periode">Periode: Agustus 2026</div>
-                        </div>
-                    </div>
-
-                    <div class="payslip-meta" style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:12px;">
-                        <div>
-                            <div><b>ID:</b> <span id="slip-id">1</span></div>
-                            <div><b>Nama:</b> <span id="slip-nama">Budi Santoso</span></div>
-                        </div>
-                        <div>
-                            <div><b>Jabatan:</b> <span id="slip-jabatan">Senior Engineer</span></div>
-                            <div><b>Divisi:</b> <span id="slip-divisi">Technology</span></div>
-                        </div>
-                    </div>
-
-                    <table class="payslip-table" style="width:100%; margin-bottom:12px; font-size:12px;">
-                        <thead>
-                            <tr style="background:#f8fafc; text-align:left;">
-                                <th style="padding:6px;">PENERIMAAN</th>
-                                <th style="text-align: right; padding:6px;">JUMLAH (RP)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td style="padding:6px;">Gaji Pokok</td>
-                                <td style="text-align: right; padding:6px;" id="slip-gapok">0</td>
-                            </tr>
-                            <tr>
-                                <td style="padding:6px;">Tunjangan & Bonus</td>
-                                <td style="text-align: right; padding:6px;" id="slip-tunjangan">0</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <table class="payslip-table" style="width:100%; margin-bottom:16px; font-size:12px;">
-                        <thead>
-                            <tr style="background:#f8fafc; text-align:left;">
-                                <th style="padding:6px;">POTONGAN</th>
-                                <th style="text-align: right; padding:6px;">JUMLAH (RP)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td style="padding:6px;">Keterlambatan Kerja (<span id="slip-late-hours">0</span> jam)</td>
-                                <td style="text-align: right; padding:6px;" id="slip-pot-late">0</td>
-                            </tr>
-                            <tr>
-                                <td style="padding:6px;">Mangkir / Absen & Lainnya (<span id="slip-absen-days">0</span> hari)</td>
-                                <td style="text-align: right; padding:6px;" id="slip-pot-absen">0</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="payslip-total" style="display:flex; justify-content:space-between; font-weight:700; font-size:14px; background:#f1f5f9; padding:10px; border-radius:6px;">
-                        <span>TOTAL GAJI BERSIH (TAKE HOME PAY)</span>
-                        <span id="slip-thp">Rp 0</span>
-                    </div>
-
-                    <div style="margin-top: 24px; font-size: 10px; color: #94a3b8; text-align: center;">
-                        * Dokumen ini diterbitkan secara otomatis oleh HamasaPayMaster.
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="downloadPDF()"><i class="fa-solid fa-file-pdf"></i> Unduh PDF</button>
-                <button class="btn btn-outline" onclick="downloadPNG()"><i class="fa-solid fa-file-image"></i> Unduh PNG</button>
-                <button class="btn btn-success" id="btn-send-single-wa"><i class="fa-brands fa-whatsapp"></i> Kirim WA</button>
-            </div>
-        </div>
-    </div>
-
     <!-- TOAST NOTIFICATION SUCCESS -->
     <div class="toast" id="toast-success">
         <i class="fa-solid fa-circle-check text-green"></i>
@@ -447,26 +360,72 @@
     </div>
 
     <!-- MODAL TAMBAH TUNJANGAN CUSTOM -->
-    <div id="modalTambahTunjangan" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)">
+    <div id="modalTambahKomponen" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)">
         <div class="custom-modal-box">
             <h3 class="custom-modal-title">Tambah Tunjangan</h3>
-            <input type="hidden" id="tunjanganEmpId">
+            <input type="hidden" id="komponenEmpId">
 
+            <!-- 2. Nama Komponen -->
             <div class="custom-form-group">
-                <label class="custom-form-label">Nama Tunjangan</label>
-                <input type="text" id="namaTunjangan" class="custom-form-input" placeholder="Contoh: Tunjangan Jabatan, Transport, ...">
+                <label class="custom-form-label">Nama Komponen</label>
+                
+                <div class="input-inline-wrapper">
+                    <!-- Wrapper utama diberi ID untuk deteksi klik di luar -->
+                    <div class="combobox-wrapper" id="wrapperNama">
+                        <input type="text" 
+                            id="namaKomponen" 
+                            class="custom-form-input" 
+                            placeholder="Cari atau ketik nama komponen..." 
+                            autocomplete="off">
+                        
+                        <!-- Menu Dropdown Melayang -->
+                        <div class="combobox-dropdown" id="dropdownNama">
+                            <div class="combobox-option" data-value="Tunjangan Jabatan">Tunjangan Jabatan</div>
+                            <div class="combobox-option" data-value="Tunjangan Perawatan Motor">Tunjangan Perawatan Motor</div>
+                            <div class="combobox-option" data-value="Tunjangan Transport & Makan">Tunjangan Transport & Makan</div>
+                            <div class="combobox-option" data-value="Tunjangan/Subsidi BPJS TK">Tunjangan/Subsidi BPJS TK</div>
+                            <div class="combobox-option" data-value="Tunjangan Hari Raya">Tunjangan Hari Raya</div>
+                        </div>
+                        <div class="combobox-dropdown" id="dropdownNamaBonus">
+                            <div class="combobox-option" data-value="Insentive">Insentive</div>
+                            <div class="combobox-option" data-value="Insentive Jasa Service">Insentive Jasa Service</div>
+                            <div class="combobox-option" data-value="Insentive Kerajinan">Insentive Kerajinan</div>
+                            <div class="combobox-option" data-value="Insentive Sewa, Kredit, Cicilan">Insentive Sewa, Kredit, Cicilan</div>
+                            <div class="combobox-option" data-value="Bonus Cons. & Spart.">Bonus Cons. & Spart.</div>
+                            <div class="combobox-option" data-value="Lembur">Lembur</div>
+                        </div>
+                        <div class="combobox-dropdown" id="dropdownNamaPotongan">
+                            <div class="combobox-option" data-value="Pot. Tj Transport & Makan">Pot. Tj Transport & Makan</div>
+                            <div class="combobox-option" data-value="Pot. BPJS TK">Pot. BPJS TK</div>
+                            <div class="combobox-option" data-value="Pot. Kasbon">Pot. Kasbon</div>
+                            <div class="combobox-option" data-value="Pot. Absen">Pot. Absen</div>
+                            <div class="combobox-option" data-value="Pot. Terlambat">Pot. Terlambat</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="custom-row-calc">
                 <div class="custom-col-flex">
                     <label class="custom-form-label">Nominal</label>
-                    <div class="custom-input-group">
-                        <span class="custom-input-prefix">Rp</span>
-                        <input type="text" 
-                            id="nominalTunjangan" 
-                            class="custom-form-input has-prefix" 
-                            placeholder="0" 
-                            oninput="formatRupiahInput(this)">
+                
+                    <div class="input-inline-wrapper">
+                        <!-- Wrapper utama diberi ID untuk deteksi klik di luar -->
+                        <div class="combobox-wrapper" id="wrapperNominal">
+                            <span class="custom-input-prefix" style="padding-top:10px;">Rp</span>
+                            <input type="text" 
+                                id="nominalKomponen" 
+                                class="custom-form-input has-prefix" 
+                                placeholder="0" 
+                                oninput="formatRupiahInput(this)" 
+                                autocomplete="off">
+                            
+                            <!-- Menu Dropdown Melayang -->
+                            <div class="combobox-dropdown" id="dropdownNominal">
+                                <div class="combobox-option" data-value="25000">Rp 25.000</div>
+                                <div class="combobox-option" data-value="2% Gapok">2% Gapok</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -474,173 +433,45 @@
                 
                 <div class="custom-col-flex">
                     <label class="custom-form-label">Satuan</label>
-                    <input type="number" id="satuanTunjangan" class="custom-form-input" placeholder="1" value="1">
+
+                    <div class="input-inline-wrapper">
+                        <!-- Wrapper utama diberi ID untuk deteksi klik di luar -->
+                        <div class="combobox-wrapper" id="wrapperSatuan">
+                            <input type="text" 
+                                id="satuanKomponen" 
+                                class="custom-form-input" 
+                                placeholder="0" 
+                                autocomplete="off">
+                            
+                            <!-- Menu Dropdown Melayang -->
+                            <div class="combobox-dropdown" id="dropdownSatuan">
+                                <div class="combobox-option" data-value="1">1</div>
+                                <div class="combobox-option" data-value="Total Masuk Kerja">Total Masuk Kerja</div>
+                                <div class="combobox-option" data-value="Total Absen">Total Absen</div>
+                                <div class="combobox-option" data-value="Total Terlambat">Total Terlambat</div>
+                                <div class="combobox-option" data-value="Total Lembur">Total Lembur</div>
+                            </div>
+                            <!-- Menu Dropdown Melayang -->
+                            <div class="combobox-dropdown" id="dropdownSatuanBonus">
+                                <div class="combobox-option" data-value="1">1</div>
+                                <div class="combobox-option" data-value="Total Masuk Kerja">Total Masuk Kerja</div>
+                                <div class="combobox-option" data-value="Total Absen">Total Absen</div>
+                                <div class="combobox-option" data-value="Total Terlambat">Total Terlambat</div>
+                                <div class="combobox-option" data-value="Total Lembur">Total Lembur</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <button type="button" class="custom-btn-submit" onclick="simpanTunjangan()">
+            <button type="button" class="custom-btn-submit">
                 + Tambah Tunjangan
             </button>
         </div>
     </div>
 
-    <!-- MODAL TAMBAH BONUS/INSENTIVE -->
-    <div id="modalTambahBonus" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)">
-        <div class="custom-modal-box">
-            <h3 class="custom-modal-title">Tambah Bonus/Insentive</h3>
-            <input type="hidden" id="bonusEmpId">
-
-            <div class="custom-form-group">
-                <label class="custom-form-label">Nama Bonus/Insentive</label>
-                <input type="text" id="namaBonus" class="custom-form-input" placeholder="Contoh: Insentive Lembur, Kerajinan, ...">
-            </div>
-
-            <div class="custom-row-calc">
-                <div class="custom-col-flex">
-                    <label class="custom-form-label">Nominal</label>
-                    <div class="custom-input-group">
-                        <span class="custom-input-prefix">Rp</span>
-                        <input type="text" 
-                            id="nominalBonus" 
-                            class="custom-form-input has-prefix" 
-                            placeholder="0" 
-                            oninput="formatRupiahInput(this)">
-                    </div>
-                </div>
-                
-                <div class="custom-col-x">x</div>
-                
-                <div class="custom-col-flex">
-                    <label class="custom-form-label">Satuan</label>
-                    <input type="number" id="satuanBonus" class="custom-form-input" placeholder="1" value="1">
-                </div>
-            </div>
-
-            <button type="button" class="custom-btn-submit btn-bonus" onclick="simpanBonus()">
-                + Tambah Bonus/Insentive
-            </button>
-        </div>
-    </div>
-
-    <!-- MODAL TAMBAH POTONGAN -->
-    <div id="modalTambahPotongan" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)">
-        <div class="custom-modal-box">
-            <h3 class="custom-modal-title">Tambah Potongan</h3>
-            <input type="hidden" id="potonganEmpId">
-
-            <div class="custom-form-group">
-                <label class="custom-form-label">Nama Potongan</label>
-                <input type="text" id="namaPotongan" class="custom-form-input" placeholder="Contoh: Pot. Kasbon, Terlambat, ...">
-            </div>
-
-            <div class="custom-row-calc">
-                <div class="custom-col-flex">
-                    <label class="custom-form-label">Nominal</label>
-                    <div class="custom-input-group">
-                        <span class="custom-input-prefix">Rp</span>
-                        <input type="text" 
-                            id="nominalPotongan" 
-                            class="custom-form-input has-prefix" 
-                            placeholder="0" 
-                            oninput="formatRupiahInput(this)">
-                    </div>
-                </div>
-                
-                <div class="custom-col-x">x</div>
-                
-                <div class="custom-col-flex">
-                    <label class="custom-form-label">Satuan</label>
-                    <input type="number" id="satuanPotongan" class="custom-form-input" placeholder="1" value="1">
-                </div>
-            </div>
-
-            <button type="button" class="custom-btn-submit btn-potongan" onclick="simpanPotongan()">
-                + Tambah Potongan
-            </button>
-        </div>
-    </div>
-
-    <!-- MODAL TAMBAH KOMPONEN GAJI DENGAN RUMUS VARIASI -->
-    <div id="modalTambahKomponen" class="custom-modal-overlay" onclick="closeModalOnOverlay(event)" style="display: none;">
-        <div class="custom-modal-box">
-            <div class="custom-modal-header">
-                <h3 class="custom-modal-title">Tambah Komponen Gaji</h3>
-                <button type="button" class="custom-modal-close" onclick="closeKomponenModal()">&times;</button>
-            </div>
-            
-            <input type="hidden" id="komponenEmpId">
-
-            <!-- 1. Kategori Komponen -->
-            <div class="custom-form-group">
-                <label class="custom-form-label">Kategori Komponen</label>
-                <select id="kategoriKomponen" class="custom-form-input">
-                    <option value="tunjangan">Tunjangan (+)</option>
-                    <option value="bonus">Bonus (+)</option>
-                    <option value="potongan">Potongan (-)</option>
-                </select>
-            </div>
-
-            <!-- 2. Nama Komponen -->
-            <div class="custom-form-group">
-                <label class="custom-form-label">Nama Komponen</label>
-                <input type="text" 
-                    id="namaKomponen" 
-                    list="masterComponentList" 
-                    class="custom-form-input" 
-                    placeholder="Ketik baru atau pilih yang sudah ada..." 
-                    autocomplete="off">
-                
-                <!-- Wadah pilihan otomatis (Datalist) -->
-                <datalist id="masterComponentList"></datalist>
-            </div>
-
-            <!-- 3. Tipe Rumus Perhitungan -->
-            <div class="custom-form-group">
-                <label class="custom-form-label">Rumus Perhitungan</label>
-                <select id="tipeRumusKomponen" class="custom-form-input" onchange="toggleFormInputsByRumus()">
-                    <option value="FLAT">Nominal Tetap (Flat)</option>
-                    <option value="PER_UNIT">Per Satuan / Qty (Nominal x Jumlah)</option>
-                    <option value="PERCENTAGE">Persentase (%) dari Gaji Pokok</option>
-                </select>
-            </div>
-
-            <!-- 4A. Input Container: NOMINAL TETAP / NOMINAL PER SATUAN -->
-            <div id="containerNominal" class="custom-form-group">
-                <label id="labelNominal" class="custom-form-label">Nominal</label>
-                <div class="custom-input-group">
-                    <span class="custom-input-prefix">Rp</span>
-                    <input type="text" 
-                        id="nominalKomponen" 
-                        class="custom-form-input has-prefix" 
-                        placeholder="0" 
-                        oninput="formatRupiahInput(this)">
-                </div>
-            </div>
-
-            <!-- 4B. Input Container: SATUAN / QTY (Hanya muncul jika PER_UNIT) -->
-            <div id="containerSatuan" class="custom-form-group" style="display: none;">
-                <label class="custom-form-label">Jumlah / Satuan (Qty)</label>
-                <input type="number" id="satuanKomponen" class="custom-form-input" placeholder="1" value="1" min="1">
-            </div>
-
-            <!-- 4C. Input Container: PERSENTASE (Hanya muncul jika PERCENTAGE) -->
-            <div id="containerPersen" class="custom-form-group" style="display: none;">
-                <label class="custom-form-label">Persentase (%)</label>
-                <div class="custom-input-group">
-                    <input type="number" id="persenKomponen" class="custom-form-input" placeholder="Contoh: 5" step="0.1" min="0" max="100">
-                    <span class="custom-input-suffix">%</span>
-                </div>
-                <small style="color: #6b7280; font-size: 0.75rem;">Dihitung dari Gaji Pokok Karyawan</small>
-            </div>
-
-            <!-- Submit Button -->
-            <button type="button" class="custom-btn-submit" onclick="simpanKomponen()">
-                + Simpan Komponen
-            </button>
-        </div>
-    </div>
-
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="app.js"></script>
+    <script src="{{ url_for('static', filename='js/slip.js') }}"></script>
 
 </body>
 </html>

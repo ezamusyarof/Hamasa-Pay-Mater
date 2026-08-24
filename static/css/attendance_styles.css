@@ -1,0 +1,29 @@
+.select-status-edit {
+    font-weight: bold;
+    text-align: center;
+}
+
+.status-H {
+    background-color: #d8f9e8;
+    color: #065f46;
+}
+
+.status-T {
+    background-color: #fbebe0;
+    color: #8a5b0a;
+}
+
+.status-S {
+    background-color: #c7f8fe;
+    color: #265aac;
+}
+
+.status-A {
+    background-color: #f9e6e6;
+    color: #b40f0f;
+}
+
+.status-L {
+    background-color: #f9e2f7;
+    color: #4f309a;
+}
