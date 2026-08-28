@@ -73,8 +73,8 @@
             <section id="view-kehadiran">
                 <div class="tab-menu">
                     <a class="tab-btn no-underline" href="/attendance?periode={{periode_raw}}">Rekap Kehadiran</a>
-                    <button class="tab-btn active"">Detail Kehadiran</button>
-                    <a class="tab-btn no-underline" href="/attendance/time?periode={{periode_raw}}">Waktu Kehadiran</a>
+                    <a class="tab-btn no-underline" href="/attendance/detail?periode={{periode_raw}}">Detail Kehadiran</a>
+                    <button class="tab-btn active"">Waktu Kehadiran Karyawan</button>
                 </div>
                 
                 <div id="tab-detail-kehadiran" class="tab-content">
@@ -126,14 +126,21 @@
                                             ><p>{{ emp.name }}</p></td>
 
                                             {% for d in month %}
-                                                {% set status = attendance_matrix[emp.user_id][d] %}
+                                                {% set attendance = attendance_matrix[emp.user_id][d] %}
+                                                {% set status = attendance_matrix[emp.user_id][d]['status'] %}
                                                 <td
                                                     class="text-center align-middle p-1"
                                                     style="font-size: 11px;"
                                                 >
                                                     <span
-                                                        class="status-badge status-{{status}}"
-                                                    >{{status}}</span>
+                                                        class="time-badge status-{{status}}"
+                                                    >
+                                                    {{ attendance.status if attendance.checkin == '00:00' and attendance.checkout == '00:00' else ''}}
+                                                    {%if attendance.checkin != '00:00' or attendance.checkout != '00:00' %}
+                                                        {{ attendance.checkin[:5] if attendance.checkin != '00:00' else '-'}}
+                                                        {{ attendance.checkout[:5] if attendance.checkout != '00:00' else '-'}}
+                                                    {%endif%}
+                                                    </span>
                                                 </td>
 
                                             {% endfor %}
@@ -194,7 +201,7 @@
     {% include 'components/modal_edit_password.html' %}
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/attendance.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/attendance_time.js') }}"></script>
     <script src="{{ url_for('static', filename='js/slip.js') }}"></script>
 
 </body>

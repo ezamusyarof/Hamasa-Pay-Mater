@@ -5,11 +5,10 @@ const daftarKomponen = {
         "Tunjangan Transport & Makan",
         "Tunjangan/Subsidi BPJS TK",
         "Tunjangan Hari Raya",
-        "Insentive",
-        "Insentive Jasa Service",
+        "Insentive Sale/Install",
+        "Insentive Jasa Service/Cons-Part",
         "Insentive Kerajinan",
         "Insentive Sewa, Kredit, Cicilan",
-        "Bonus Conssumable & Sparepart",
         "Lembur"
     ],
 
@@ -284,13 +283,15 @@ function toggleKasbonFields() {
     const inputCicilan = document.getElementById("jumlahCicilanKomponen");
 
     const isKasbon = namaKomponen === "potongan kasbon";
+    const rowCalc = colKasbon.closest('.custom-row-calc');
 
     if (isKasbon) {
+        rowCalc.style.setProperty("display", "flex", "important");
 
         colKasbon.style.setProperty("display", "flex", "important");
         colCicilan.style.setProperty("display", "flex", "important");
-
     } else {
+        rowCalc.style.setProperty("display", "none", "important");
 
         colKasbon.style.setProperty("display", "none", "important");
         colCicilan.style.setProperty("display", "none", "important");

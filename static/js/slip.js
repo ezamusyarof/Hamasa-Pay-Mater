@@ -183,7 +183,27 @@ async function simpanKomponen(empId, category, att, periode) {
             );
         }
 
-        window.location.href = '/payroll';
+        const modal = document.getElementById('modalTambahKomponen');
+
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        updatePayrollRow(empId, category, {
+            id: result.item_id,
+            name: nameInput,
+            rate: nominalInput,
+            qty: qty,
+            amount: amount,
+
+            total_penambahan: result.total_tunjangan,
+            total_bonus: result.total_bonus,
+            total_potongan: result.total_potongan,
+            total_earning: result.total_earning,
+            total_deduction: result.total_deduction,
+            thp: result.thp,
+            pph21: result.pph21,
+            thp_after_tax: result.thp_after_tax
+        });
 
     } catch (error) {
         console.error(error);
@@ -191,6 +211,303 @@ async function simpanKomponen(empId, category, att, periode) {
         alert(
             "Gagal menyimpan komponen: " +
             error.message
+        );
+    }
+}
+
+function updatePayrollRow(empId, category, item) {
+
+    const container = document.getElementById(
+        `${category}-container-${empId}`
+    );
+
+    if (!container) {
+        console.error(
+            `Container ${category}-container-${empId} tidak ditemukan`
+        );
+        return;
+    }
+
+    // ==========================================
+    // 1. Tentukan index item baru
+    // ==========================================
+
+    const existingItems = container.querySelectorAll(
+        `[id^="${category}-normal-${empId}-"]`
+    );
+
+    const index = existingItems.length;
+
+
+    // ==========================================
+    // 2. Format Rupiah
+    // ==========================================
+
+    const formatRupiah = (value) => {
+        return new Intl.NumberFormat('id-ID').format(
+            Number(value) || 0
+        );
+    };
+
+
+    // ==========================================
+    // 3. Style berdasarkan kategori
+    // ==========================================
+
+    const isPotongan = category === 'potongan';
+
+    const backgroundColor = isPotongan
+        ? '#fef2f2'
+        : '#D8F9E8';
+
+    const borderColor = isPotongan
+        ? '#fecaca'
+        : '#6fe6a8';
+
+    const textColor = isPotongan
+        ? '#ef4444'
+        : '#166534';
+
+    const buttonColor = isPotongan
+        ? '#f87171'
+        : '#0d9d6d';
+
+
+    // ==========================================
+    // 4. Buat element baru
+    // ==========================================
+
+    const itemElement = document.createElement('div');
+
+    itemElement.id =
+        `${category}-normal-${empId}-${index}`;
+
+    itemElement.style.cssText = `
+        background-color: ${backgroundColor};
+        padding: 6px 8px;
+        border-radius: 6px;
+        border: 1px solid ${borderColor};
+        margin-bottom: 6px;
+        margin-top: 2px;
+    `;
+
+
+    // ==========================================
+    // 5. Isi HTML item
+    // ==========================================
+
+    itemElement.innerHTML = `
+        <div
+            class="${isPotongan ? '' : 'text-muted'} text-truncate"
+            style="
+                font-size: 11px;
+                line-height: 1.2;
+                margin-bottom: 2px;
+                ${isPotongan
+                    ? `color: ${textColor};`
+                    : ''
+                }
+            "
+        >
+            ${escapeHtml(item.name)}
+        </div>
+
+        <div style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        ">
+
+            <span
+                class="fw-bold"
+                style="
+                    font-size: 13px;
+                    white-space: nowrap;
+                    color: ${textColor};
+                "
+            >
+                ${isPotongan ? '-' : ''}
+                <span class="harga">
+                    Rp ${formatRupiah(item.amount)}
+                </span>
+            </span>
+
+            <button
+                type="button"
+                class="btn btn-sm p-0 d-flex
+                       align-items-center
+                       justify-content-center"
+                style="
+                    width: 18px;
+                    height: 18px;
+                    min-width: 13px;
+                    font-size: 10px;
+                    border-radius: 3px;
+                    background-color: ${buttonColor};
+                    border: none;
+                    flex-shrink: 0;
+                    color: #fff;
+                "
+                onclick="setDeleteConfirm(
+                    '${empId}',
+                    '${category}',
+                    '${index}'
+                )"
+            >
+                -
+            </button>
+
+        </div>
+    `;
+
+
+    // ==========================================
+    // 6. Tambahkan ke halaman
+    // ==========================================
+
+    container.appendChild(itemElement);
+
+    // Tambahkan area konfirmasi hapus
+    const deleteElement = document.createElement('div');
+
+    deleteElement.id =
+        `${category}-delete-${empId}-${index}`;
+
+    deleteElement.style.cssText = `
+        background-color: #ff0000;
+        border: 1px solid #ff0000;
+        padding: 5px 6px;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        margin-top: 4px;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+    `;
+
+    deleteElement.innerHTML = `
+        <button
+            type="button"
+            onclick="executeRemoveItem('${item.id}')"
+            style="
+                flex: 1;
+                background-color: #ff0000;
+                color: #ffffff;
+                border: none;
+                padding: 9px;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 700;
+                cursor: pointer;
+            "
+        >
+            Hapus Data
+        </button>
+
+        <button
+            type="button"
+            onclick="cancelDeleteConfirm('${empId}', '${category}', '${index}')"
+            style="
+                background-color: rgba(255,255,255,0.25);
+                color: #ffffff;
+                border: none;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: 600;
+            "
+        >
+            x
+        </button>
+    `;
+
+    container.appendChild(deleteElement);
+
+
+    // ==========================================
+    // 7. Update total payroll
+    // ==========================================
+
+    const row = itemElement.closest('tr');
+
+    if (!row) {
+        console.error(
+            `Baris employee ${empId} tidak ditemukan`
+        );
+        return;
+    }
+
+
+    // ------------------------------------------
+    // Cari semua elemen .harga di row
+    // ------------------------------------------
+    const hargaElements =
+        row.querySelectorAll('.harga');
+
+
+    // ------------------------------------------
+    // Update berdasarkan posisi elemen
+    // ------------------------------------------
+    //
+    // Dari HTML yang kamu kirim:
+    //
+    // total earning  -> Rp 8.925.000
+    // deduction      -> Rp 148.050
+    // THP            -> Rp 8.776.950
+    //
+    // Kita akan menggunakan selector khusus
+    // jika nanti ID sudah dipasang.
+    // ------------------------------------------
+
+    const totalPenambahanElement =
+        row.querySelector('[data-total-penambahan]');
+
+    const totalPotonganElement =
+        row.querySelector('[data-total-potongan]');
+
+    const thpElement =
+        row.querySelector('[data-thp]');
+
+    const pph21Element =
+        row.querySelector('[data-pph21]');
+        
+    const thpAfterTaxElement =
+        row.querySelector('[data-thp-after-tax]');
+
+    if (totalPenambahanElement) {
+        totalPenambahanElement.textContent =
+            `Rp ${formatRupiah(item.total_penambahan)}`;
+    }
+
+    if (totalPotonganElement) {
+        totalPotonganElement.textContent =
+            `Rp ${formatRupiah(item.total_potongan)}`;
+    }
+
+    if (thpElement) {
+        thpElement.textContent =
+            `Rp ${formatRupiah(item.thp)}`;
+    }
+    
+    if (pph21Element) {
+        pph21Element.textContent =
+            `- Rp ${formatRupiah(item.pph21)}`;
+    }
+    
+    if (thpAfterTaxElement) {
+        thpAfterTaxElement.textContent =
+            `Rp ${formatRupiah(item.thp_after_tax)}`;
+    }
+
+
+    // ==========================================
+    // 8. Beri feedback
+    // ==========================================
+
+    if (typeof showToast === 'function') {
+        showToast(
+            'Komponen berhasil ditambahkan'
         );
     }
 }

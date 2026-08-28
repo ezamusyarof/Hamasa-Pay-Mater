@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- html2canvas for PNG export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/payroll_styles.css') }}">
 </head>
@@ -29,28 +30,22 @@
             </div>
             <ul class="nav-list">
                 <li class="nav-item" data-page="dashboard">
-                    <a href="/dashboard"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                    <a href="/dashboard?periode={{periode}}"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
                 </li>
                 <li class="nav-item" active data-page="karyawan">
-                    <a href="/employees"><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
+                    <a href="/employees?periode={{periode}}"><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
                 </li>
                 <li class="nav-item" data-page="kehadiran">
-                    <a href="/attendance"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
+                    <a href="/attendance?periode={{periode}}"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
                 </li>
                 <li class="nav-item active" data-page="payroll">
-                    <a href="/payroll"><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
+                    <a><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
                 </li>
             </ul>
         </div>
-        <div class="sidebar-footer">
-            <div class="user-card">
-                <div class="avatar">HIM</div>
-                <div class="user-info">
-                    <span class="user-name">Manager</span>
-                    <span class="user-role">Hamasa Iparna Mandiri</span>
-                </div>
-            </div>
-        </div>
+
+        {% include 'components/sidebar_footer.html' %}
+
     </sidebar>
 
     <!-- MAIN CONTENT -->
@@ -82,7 +77,7 @@
                             <p style="font-size: 12px; color: var(--text-muted);">Perhitungan otomatis gaji bersih berdasarkan absensi, tunjangan, dan bonus.</p>
                         </div>
                         <div>
-                            <button class="btn btn-secondary" onclick="deleteAllPayrollByMonth()"><i class="fa-solid fa-trash"></i> Hapus Payroll Bulan Ini</button>
+                            <button class="btn btn-secondary" onclick="openConfirmDeletePayrollModal()"><i class="fa-solid fa-trash"></i> Hapus Payroll Bulan Ini</button>
                             <button class="btn btn-primary" onclick="createAllPayrollByMonth()"><i class="fa-solid fa-book"></i> Buka Payroll Bulan Ini</button>
                         </div>
                     </div>
@@ -151,8 +146,8 @@
                                         <div class="harga fw-bold" style="font-size: 13px;">{{emp.basic_salary}}</div>
                                     </td>
 
-                                    <td class="align-top" style="padding: 12px 8px; vertical-align: top !important; min-width: 190px;" onclick="event.stopPropagation();">
-                                        <div class="harga fw-bold" style="font-size: 13px;">{{ emp.tunjanganList | sum(attribute='amount') }}</div>                       
+                                    <td id="tunjangan-container-{{ emp.id }}" class="align-top" style="padding: 12px 8px; vertical-align: top !important; min-width: 190px;" onclick="event.stopPropagation();">
+                                        <div data-total-penambahan class="harga fw-bold" style="font-size: 13px;">{{ emp.tunjanganList | sum(attribute='amount') }}</div>                       
                                         
                                         
                                         <div style="height: 10px;"></div>
@@ -162,8 +157,8 @@
                                             + Penambahan
                                         </button>
 
-                                        {% for tunjangan in emp.tunjanganList %}
                                         <div style="display: flex; flex-direction: column; gap: 10px; max-width: 100%;">
+                                            {% for tunjangan in emp.tunjanganList %}
                                             <div id="tunjangan-normal-{{ emp.id }}-{{ loop.index0 }}" style="background-color: #D8F9E8; padding: 6px 8px; border-radius: 6px; border: 1px solid #6fe6a8; margin-bottom: 6px; margin-top: 2px;">
                                                 <div class="text-muted text-truncate" style="font-size: 11px; line-height: 1.2; margin-bottom: 2px;">
                                                     {{tunjangan.name}}
@@ -190,13 +185,13 @@
                                                     x
                                                 </button>
                                             </div>
+                                            {% endfor %}
                                         </div>
-                                        {% endfor %}
                                     </td>
 
                                     <td class="align-top" style="padding: 12px 8px; vertical-align: top !important; min-width: 190px;" onclick="event.stopPropagation();">
                                         <div class="fw-bold" style="font-size: 13px;">-
-                                            <span class="harga">{{ emp.potonganList | sum(attribute='amount') }}</span>
+                                            <span data-total-potongan class="harga">{{ emp.potonganList | sum(attribute='amount') }}</span>
                                         </div>
                                         
                                         <div style="height: 10px;"></div>
@@ -205,8 +200,8 @@
                                                 onclick="openKomponenModal('{{emp.id}}', 'potongan', '{{ emp.at }}', '{{ periode }}')">
                                             + Pengurangan
                                         </button>
+                                        <div id="potongan-container-{{ emp.id }}" style="display: flex; flex-direction: column; gap: 10px; max-width: 100%;">
                                         {% for potongan in emp.potonganList %}
-                                        <div style="display: flex; flex-direction: column; gap: 10px; max-width: 100%;">
                                             <div id="potongan-normal-{{ emp.id }}-{{ loop.index0 }}" style="background-color: #fef2f2; padding: 6px 8px; border-radius: 6px; border: 1px solid #fecaca; margin-bottom: 6px; margin-top: 2px;">
                                                 <div class="text-truncate" style="font-size: 11px; line-height: 1.2; color: #ef4444; margin-bottom: 2px;">
                                                     {{potongan.name}}
@@ -234,20 +229,20 @@
                                                     x
                                                 </button>
                                             </div>
+                                            {% endfor %}
                                         </div>
-                                        {% endfor %}
                                     </td>
 
                                     <td class="align-top" style="padding: 12px 8px; vertical-align: top !important;">
-                                        <div class="fw-bold" style="font-size: 13px; color: #111827;"><span class="harga">{{emp.thp}}</span></div>
+                                        <div data-thp class="fw-bold" style="font-size: 13px; color: #111827;"><span class="harga">{{emp.thp}}</span></div>
                                     </td>
 
                                     <td class="align-top" style="padding: 12px 8px; vertical-align: top !important;">
-                                        <div class="fw-bold" style="font-size: 13px; color: #111827;">- <span class="harga">{{emp.pph21}}</span></div>
+                                        <div data-pph21 class="fw-bold" style="font-size: 13px; color: #111827;">- <span class="harga">{{emp.pph21}}</span></div>
                                     </td>
 
                                     <td class="align-top" style="padding: 12px 8px; vertical-align: top !important;">
-                                        <div class="harga fw-bold" style="font-size: 13px; color: #111827;">{{emp.thp_after_tax}}</div>
+                                        <div data-thp-after-tax class="harga fw-bold" style="font-size: 13px; color: #111827;">{{emp.thp_after_tax}}</div>
                                     </td>
 
                                     <td class="align-top" style="padding: 12px 8px; vertical-align: top !important;" onclick="event.stopPropagation();">
@@ -451,7 +446,7 @@
                             </div>
 
                             <div class="slip-attendance-row">
-                                <span>Jumlah Kas Bon</span>
+                                <span>Jumlah Kasbon</span>
                                 <b>:</b>
                                 <strong id="slip-jumlah-kasbon">-</strong>
                             </div>
@@ -534,17 +529,17 @@
                 </button>
 
                 <button
-                    type="button"
+                    type="button" id="slipGajiBtnPNG"
                     class="btn btn-primary"
-                    onclick="printSlip()">
+                    onclick="downloadSlipPNG()">
                     <i class="fa-solid fa-image"></i>
                     Download PNG
                 </button>
 
                 <button
-                    type="button"
+                    type="button" id="slipGajiBtnPDF"
                     class="btn btn-primary"
-                    onclick="printSlip()">
+                    onclick="downloadSlipPDF()">
                     <i class="fa-solid fa-download"></i>
                     Download PDF
                 </button>
@@ -572,6 +567,23 @@
     <div class="toast toast-danger" id="toast-failed">
         <i class="fa-solid fa-circle-xmark text-red"></i>
         <span id="toast-message-failed">Gagal memproses data. Silakan coba lagi!</span>
+    </div>
+
+    <!-- MODAL KONFIRMASI HAPUS PAYROLL -->
+    <div class="modal-overlay" id="confirmDeletePayrollModal">
+        <div class="modal" style="max-width: 420px;">
+            <div class="modal-header">
+                <div class="modal-title">Konfirmasi Hapus Data</div>
+                <button class="modal-close" onclick="closeDeletePayrollConfirmModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin: 0 0 12px;">Apakah Anda yakin ingin menghapus seluruh payroll bulan ini?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeletePayrollConfirmModal()">Batal</button>
+                <button class="btn btn-danger" style="font-size: 12px; background-color: #fd7d7d; border: none; font-weight: 500;" onclick="confirmDeletePayroll()">Hapus</button>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL TAMBAH TUNJANGAN CUSTOM -->
@@ -659,11 +671,50 @@
                 </div>
             </div>
 
+            <div class="custom-row-calc">
+                <div class="custom-col-flex" id="colJumlahKasbon">
+                    <label class="custom-form-label">Jumlah Kasbon</label>
+
+                    <div class="input-inline-wrapper">
+                        <div class="combobox-wrapper" id="wrapperJumlahKasbon">
+                            <span class="custom-input-prefix" style="padding-top:10px;">Rp</span>
+                            <input type="text" 
+                                id="jumlahKasbonKomponen" 
+                                class="custom-form-input has-prefix" 
+                                placeholder="0" 
+                                oninput="formatRupiahInput(this)" 
+                                autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="custom-col-x"> </div>
+
+                <div class="custom-col-flex" id="colJumlahCicilan">
+                    <label class="custom-form-label">Cicilan s/d Bulan Lalu</label>
+
+                    <div class="input-inline-wrapper">
+                        <div class="combobox-wrapper" id="wrapperJumlahCicilan">
+                            <span class="custom-input-prefix" style="padding-top:10px;">Rp</span>
+                            <input type="text" 
+                                id="jumlahCicilanKomponen" 
+                                class="custom-form-input has-prefix" 
+                                placeholder="0" 
+                                oninput="formatRupiahInput(this)" 
+                                autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <button type="button" class="custom-btn-submit">
                 + Tambah
             </button>
         </div>
     </div>
+    
+    {% include 'components/modal_logout.html' %}
+    {% include 'components/modal_edit_password.html' %}
 
     <script id="employees-data" type="application/json">
         {{ employees_json | tojson }}

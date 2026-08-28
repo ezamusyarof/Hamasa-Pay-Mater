@@ -467,6 +467,25 @@ tr:hover td {
     font-weight: 700; */
 }
 
+
+.time-badge {
+    width: 50px;
+    height: 40px;
+    padding: 8px 10px;
+    text-align: center;
+    border-radius: 0px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+
+    /* align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+    font-weight: 700; */
+}
+
 /* =================================================== */
 /* COLOR MAPPING BADGE (Teks Pekat + Soft Background 15%) */
 /* =================================================== */
@@ -749,7 +768,7 @@ tr:hover td {
     position: sticky;
     left: 0;
     background-color: #ffffff !important;
-    z-index: 5;
+    /* z-index: 5; */
     min-width: 160px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.05);
 }
@@ -968,6 +987,7 @@ sidebar.collapsed {
 
 /* Sembunyikan elemen teks */
 sidebar.collapsed .logo-text,
+sidebar.collapsed .avatar,
 sidebar.collapsed .nav-item a span,
 sidebar.collapsed .user-info {
     display: none !important;

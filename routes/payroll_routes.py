@@ -195,12 +195,9 @@ def delete_payroll_item():
 
     return jsonify({
         "success": True,
-        "summary_id": summary.id,
-        "total_tunjangan": total_tunjangan,
-        "total_bonus": total_bonus,
+        "item_id": item_id,
+        "total_penambahan": total_tunjangan,
         "total_potongan": total_potongan,
-        "total_earning": summary.total_earning,
-        "total_deduction": summary.total_deduction,
         "thp": summary.thp,
         "pph21": summary.pph21,
         "thp_after_tax": summary.thp_after_tax
@@ -566,3 +563,157 @@ def delete_payroll():
         return jsonify({
             "message": f"Gagal menghapus payroll: {str(e)}"
         }), 500
+
+@payroll_bp.route("/payroll/slip/<int:employee_id>")
+def get_payroll_slip(employee_id):
+
+    periode = request.args.get("periode")
+
+    summaries = PayrollSummary.query.filter_by(
+        periode=periode
+    ).all()
+
+    attendance_records = DailyAttendance.query.filter(
+        DailyAttendance.date.like(f"{periode}-%")
+    ).all()
+
+    attendance_summary = {}
+
+    for record in attendance_records:
+
+        user_id = str(
+            record.user_id
+        ).strip()
+
+        if user_id not in attendance_summary:
+
+            attendance_summary[user_id] = {
+                "H": 0,
+                "T": 0,
+                "S": 0,
+                "A": 0,
+                "L": 0
+            }
+
+        if record.status in attendance_summary[user_id]:
+
+            attendance_summary[user_id][
+                record.status
+            ] += 1
+
+    employees_data = []
+
+    for s in summaries:
+
+        emp = s.employee
+
+        if not emp:
+            continue
+
+        # ======================================================
+        # LIST PAYROLL ITEMS
+        # ======================================================
+
+        tunjangan_list = [
+            {
+                "id": i.id,
+                "name": i.name,
+                "amount": i.amount
+            }
+            for i in s.items
+            if i.type == "tunjangan"
+        ]
+
+        bonus_list = [
+            {
+                "id": i.id,
+                "name": i.name,
+                "amount": i.amount
+            }
+            for i in s.items
+            if i.type == "bonus"
+        ]
+
+        potongan_list = [
+            {
+                "id": i.id,
+                "name": i.name,
+                "amount": i.amount
+            }
+            for i in s.items
+            if i.type == "potongan"
+        ]
+
+        # ======================================================
+        # AMBIL REKAP ABSENSI EMPLOYEE
+        # ======================================================
+
+        emp_user_id = str(
+            emp.user_id
+        ).strip()
+
+        att = attendance_summary.get(
+            emp_user_id,
+            {
+                "H": 0,
+                "T": 0,
+                "S": 0,
+                "A": 0,
+                "L": 0
+            }
+        )
+
+        # ======================================================
+        # HITUNG PPH 21
+        # ======================================================
+
+        # pph21 = pph_21(
+        #     s.thp,
+        #     emp.married_status,
+        #     emp.dependents
+        # )
+
+        # thp_after_tax = s.thp - pph21
+
+        # ======================================================
+        # DATA EMPLOYEE
+        # ======================================================
+
+        employees_data.append({
+            "id": str(emp.id),
+            "user_id": emp_user_id,
+            "name": emp.name or "-",
+            "position": emp.position or "-",
+            "basic_salary": s.basic_salary,
+            "thp": s.thp,
+            "pph21": s.pph21,
+            "kasbon": s.kasbon,
+            "cicilan": s.cicilan,
+            "thp_after_tax": s.thp_after_tax,
+            "tunjanganList": tunjangan_list,
+            "bonusList": bonus_list,
+            "potonganList": potongan_list,
+            "att": {
+                "H": att["H"],
+                "T": att["T"],
+                "S": att["S"],
+                "A": att["A"],
+                "L": att["L"]
+            }
+        })
+
+    
+    employees_data.sort(
+        key=lambda x: (
+            (x["position"] or "-").lower(),
+            (x["name"] or "-").lower()
+        )
+    )
+
+    # ==========================================================
+    # 6. RENDER
+    # ==========================================================
+
+    return jsonify(
+        employees_json=employees_data,
+    )

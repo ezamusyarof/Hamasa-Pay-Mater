@@ -3,7 +3,8 @@ import datetime
 from flask import Blueprint, jsonify, request, current_app
 from zk import ZK
 from models import DailyAttendance, Employee, LogAbsensi, PayrollSummary
-from services.attendance_service import process_attendance_recap_incremental
+from routes.user_routes import login_required
+from services.attendance_service import calculate_status_from_time, is_holiday_date, process_attendance_recap_incremental
 from extensions import db
 
 attendance_bp = Blueprint(
@@ -13,6 +14,7 @@ attendance_bp = Blueprint(
 )
 
 @attendance_bp.route("/attendance/detail", methods=["GET"])
+@login_required
 def get_attendance_detail():
     """Mengembalikan data matrik kehadiran harian karyawan dalam satu bulan"""
     periode = request.args.get(
@@ -50,7 +52,124 @@ def get_attendance_detail():
 
     return jsonify({"status": "success", "periode": periode, "data": result})
 
+@attendance_bp.route("/attendance/time", methods=["GET"])
+@login_required
+def get_attendance_time_detail():
+    """Mengembalikan data status, check-in, dan check-out karyawan dalam satu bulan."""
+
+    periode = request.args.get(
+        "periode",
+        datetime.date.today().strftime("%Y-%m")
+    )
+
+    employees = Employee.query.filter_by(status="Aktif").all()
+
+    result = []
+
+    # =========================================================
+    # 1. AMBIL SELURUH DATA ATTENDANCE DALAM PERIODE
+    # =========================================================
+
+    attendances = DailyAttendance.query.filter(
+        DailyAttendance.date.like(f"{periode}-%")
+    ).all()
+
+    # =========================================================
+    # 2. BUAT LOOKUP BERDASARKAN USER ID + TANGGAL
+    # =========================================================
+
+    attendance_lookup = {}
+
+    for att in attendances:
+
+        att_user_id = str(
+            att.user_id or ""
+        ).replace("'", "")
+
+        day_str = att.date.split("-")[2]
+
+        attendance_lookup[
+            (att_user_id, day_str)
+        ] = att
+
+    # =========================================================
+    # 3. LOOP EMPLOYEE
+    # =========================================================
+
+    for emp in employees:
+
+        emp_user_id = str(
+            emp.user_id or ""
+        ).replace("'", "")
+
+        daily_map = {}
+
+        # =====================================================
+        # 4. TENTUKAN JUMLAH HARI DALAM BULAN
+        # =====================================================
+
+        try:
+            year, month = map(int, periode.split("-"))
+
+            total_days = calendar.monthrange(
+                year,
+                month
+            )[1]
+
+        except (ValueError, TypeError):
+            total_days = 31
+
+        # =====================================================
+        # 5. BUAT DATA SETIAP TANGGAL
+        # =====================================================
+
+        for day in range(1, total_days + 1):
+
+            day_str = f"{day:02d}"
+
+            att = attendance_lookup.get(
+                (emp_user_id, day_str)
+            )
+
+            if att:
+
+                daily_map[day_str] = {
+                    "status": att.status or "-",
+                    "checkin": att.checkin or "",
+                    "checkout": att.checkout or ""
+                }
+
+            else:
+
+                daily_map[day_str] = {
+                    "status": "-",
+                    "checkin": "",
+                    "checkout": ""
+                }
+
+        # =====================================================
+        # 6. MASUKKAN DATA EMPLOYEE
+        # =====================================================
+
+        result.append(
+            {
+                "id": emp.id,
+                "user_id": emp.user_id,
+                "name": emp.name,
+                "daily_status": daily_map,
+            }
+        )
+
+    return jsonify(
+        {
+            "status": "success",
+            "periode": periode,
+            "data": result,
+        }
+    )
+
 @attendance_bp.route("/attendance/update", methods=["GET", "POST"])
+@login_required
 def update_attendance_recap():
     """SATU ENDPOINT UNTUK SEMUA:
 
@@ -169,6 +288,7 @@ def update_attendance_recap():
     return jsonify({"status": "success", "message": msg})
 
 @attendance_bp.route("/attendance/save", methods=["POST"])
+@login_required
 def save_attendance():
     try:
         payload = request.get_json() or []
@@ -236,6 +356,195 @@ def save_attendance():
             "message": f"Gagal menyimpan: {str(e)}"
         }), 500
 
+@attendance_bp.route("/attendance/save/time", methods=["POST"])
+@login_required
+def save_attendance_time():
+    try:
+        payload = request.get_json() or []
+
+        for item in payload:
+
+            user_id = str(item.get("user_id") or "").strip()
+            date_str = item.get("date")
+
+            new_checkin = str(
+                item.get("checkin") or ""
+            ).strip()
+
+            new_checkout = str(
+                item.get("checkout") or ""
+            ).strip()
+
+            if not user_id or not date_str:
+                continue
+
+            # Cari record yang bersangkutan saja
+            record = DailyAttendance.query.filter_by(
+                user_id=user_id,
+                date=date_str
+            ).first()
+
+            # ==========================================
+            # RECORD BELUM ADA
+            # ==========================================
+
+            if not record:
+
+                # Tidak ada waktu → tidak perlu membuat record
+                if not new_checkin and not new_checkout:
+                    continue
+
+                # Tentukan status hanya untuk record baru
+                if new_checkin:
+                    check_date = datetime.datetime.strptime(
+                        date_str, "%Y-%m-%d"
+                    ).date()
+
+                    checkin_time = datetime.datetime.strptime(
+                        new_checkin, "%H:%M"
+                    ).time()
+
+                    if (
+                        check_date.weekday() >= 5
+                        or is_holiday_date(check_date)
+                    ):
+                        status = "L"
+
+                    else:
+                        deadline = datetime.datetime.strptime(
+                            current_app.config.get(
+                                "ATTENDANCE_DEADLINE",
+                                "07:11:00"
+                            ),
+                            "%H:%M:%S"
+                        ).time()
+
+                        status = (
+                            "H"
+                            if checkin_time <= deadline
+                            else "T"
+                        )
+
+                else:
+                    # Hanya checkout
+                    status = "T"
+
+                db.session.add(
+                    DailyAttendance(
+                        user_id=user_id,
+                        date=date_str,
+                        status=status,
+                        checkin=new_checkin,
+                        checkout=new_checkout,
+                        is_manual=True,
+                        updated_at=datetime.datetime.now()
+                    )
+                )
+
+                continue
+
+            # ==========================================
+            # RECORD SUDAH ADA
+            # ==========================================
+
+            old_checkin = record.checkin or ""
+            old_checkout = record.checkout or ""
+
+            checkin_changed = old_checkin != new_checkin
+            checkout_changed = old_checkout != new_checkout
+
+            # Tidak ada perubahan → skip
+            if not checkin_changed and not checkout_changed:
+                continue
+
+            # ==========================================
+            # UPDATE CHECK-IN
+            # ==========================================
+
+            if checkin_changed:
+
+                record.checkin = new_checkin
+
+                # Check-in diubah → update status
+                if new_checkin:
+
+                    check_date = datetime.datetime.strptime(
+                        date_str, "%Y-%m-%d"
+                    ).date()
+
+                    checkin_time = datetime.datetime.strptime(
+                        new_checkin, "%H:%M"
+                    ).time()
+
+                    if (
+                        check_date.weekday() >= 5
+                        or is_holiday_date(check_date)
+                    ):
+                        record.status = "L"
+
+                    else:
+                        deadline = datetime.datetime.strptime(
+                            current_app.config.get(
+                                "ATTENDANCE_DEADLINE",
+                                "07:11:00"
+                            ),
+                            "%H:%M:%S"
+                        ).time()
+
+                        record.status = (
+                            "H"
+                            if checkin_time <= deadline
+                            else "T"
+                        )
+
+                else:
+                    check_date = datetime.datetime.strptime(
+                        date_str,
+                        "%Y-%m-%d"
+                    ).date()
+
+                    is_day_off = (
+                        check_date.weekday() >= 5
+                        or is_holiday_date(check_date)
+                    )
+
+                    if is_day_off:
+                        record.status = "-"
+                    else:
+                        record.status = (
+                            "T"
+                            if new_checkout
+                            else "A"
+                        )
+
+            # ==========================================
+            # UPDATE CHECK-OUT
+            # ==========================================
+
+            if checkout_changed:
+                record.checkout = new_checkout
+
+            # ==========================================
+            # MANUAL EDIT
+            # ==========================================
+
+            record.is_manual = True
+            record.updated_at = datetime.datetime.now()
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Data absensi berhasil disimpan!"
+        }), 200
+
+    except Exception as e:
+
+        db.session.rollback()
+
+        return jsonify({
+            "message": f"Gagal menyimpan: {str(e)}"
+        }), 500
+    
 def update_payroll_summary(employee, periode):
     summary = PayrollSummary.query.filter_by(
         employee_id=employee.id,

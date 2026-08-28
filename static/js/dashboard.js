@@ -12,7 +12,7 @@ let isEditMode = false;
 let currentPage = 1;
 let activeDeleteState = null;
 let payrollChartInstance = null;
-let attendanceChartInstance = null;
+// let attendanceChartInstance = null;
 
 function getCurrentPeriod() {
     const now = new Date();
@@ -21,7 +21,6 @@ function getCurrentPeriod() {
     return `${year}-${month}`;
 }
 
-// Inisialisasi master komponen default tanpa LocalStorage
 let masterComponentNames = [
     "Tunjangan Transport",
     "Tunjangan Uang Makan",
@@ -48,13 +47,6 @@ function getMasterComponentNames() {
         ];
     }
     return window.masterComponentNames;
-}
-
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) {
-        sidebar.classList.toggle('collapsed');
-    }
 }
 
 function getEmpKey(emp) {
@@ -182,58 +174,6 @@ function resetEditButtons() {
 
     if (btnCancel) {
         btnCancel.classList.add('d-none');
-    }
-}
-
-async function saveAttendance() {
-    const btnMain = document.getElementById('btnMainAttendance');
-    if (btnMain) {
-        btnMain.disabled = true;
-        btnMain.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...`;
-    }
-
-    const payload = [];
-    Object.keys(tempAttendanceData).forEach(key => {
-        const parts = key.split('_');
-        const user_id = parts[0];
-        const date = parts[1];
-        const status = tempAttendanceData[key].status;
-        payload.push({ user_id, date, status });
-    });
-
-    try {
-        const response = await fetch('/api/attendance/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-            showToast(result.message || "Absensi berhasil disimpan!");
-            isEditMode = false;
-            tempAttendanceData = {};
-            resetEditButtons();
-
-            const selectElem = document.getElementById("selectPeriode");
-            // await loadAttendanceData(selectElem ? selectElem.value : "2026-08");
-        } else {
-            showToastFailed(result.message || "Gagal menyimpan perubahan.");
-            if (btnMain) {
-                btnMain.disabled = false;
-                btnMain.className = "btn btn-primary";
-                btnMain.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Kehadiran`;
-            }
-        }
-    } catch (e) {
-        console.error("Error saving attendance:", e);
-        showToastFailed("Terjadi kesalahan koneksi ke server.");
-        if (btnMain) {
-            btnMain.disabled = false;
-            btnMain.className = "btn btn-primary";
-            btnMain.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Kehadiran`;
-        }
     }
 }
 
@@ -368,26 +308,26 @@ new Chart(document.getElementById('payrollChart'), {
     }
 });
 
-new Chart(document.getElementById('attendanceChart'), {
-    type: 'doughnut',
-    data: {
-        labels: [
-            'Hadir',
-            'Terlambat',
-            'Sakit',
-            'Alpha'
-        ],
-        datasets: [{
-            data: [
-                attendanceToday.hadir,
-                attendanceToday.terlambat,
-                attendanceToday.sakit,
-                attendanceToday.alpha
-            ]
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false
-    }
-});
+// new Chart(document.getElementById('attendanceChart'), {
+//     type: 'doughnut',
+//     data: {
+//         labels: [
+//             'Hadir',
+//             'Terlambat',
+//             'Sakit',
+//             'Alpha'
+//         ],
+//         datasets: [{
+//             data: [
+//                 attendanceToday.hadir,
+//                 attendanceToday.terlambat,
+//                 attendanceToday.sakit,
+//                 attendanceToday.alpha
+//             ]
+//         }]
+//     },
+//     options: {
+//         responsive: true,
+//         maintainAspectRatio: false
+//     }
+// });

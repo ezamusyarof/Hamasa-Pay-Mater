@@ -42,6 +42,7 @@ if (attendanceCanvas) {
     const attendanceElement = document.getElementById("attendanceChartData");
     if (attendanceElement) {
         const attendanceData = JSON.parse( attendanceElement.textContent );
+        console.log("ATTENDANCE DATA:", attendanceData);
         if (attendanceChart) {
             attendanceChart.destroy();
         }
@@ -52,7 +53,7 @@ if (attendanceCanvas) {
                     "Hadir",
                     "Terlambat",
                     "Sakit",
-                    "Alpha",
+                    "Absen",
                     "Lembur"
                 ],
                 datasets: [{
@@ -60,7 +61,7 @@ if (attendanceCanvas) {
                         attendanceData.hadir || 0,
                         attendanceData.terlambat || 0,
                         attendanceData.sakit || 0,
-                        attendanceData.alpha || 0,
+                        attendanceData.absen || 0,
                         attendanceData.lembur || 0
                     ],
                     backgroundColor: [
@@ -104,99 +105,6 @@ if (attendanceCanvas) {
         });
     }
 }
-
-// DATA DARI FLASK
-document.addEventListener("DOMContentLoaded", () => {
-    const payrollData = JSON.parse(
-        document.getElementById("payrollChartData").textContent
-    );
-
-    const attendanceData = JSON.parse(
-        document.getElementById("attendanceChartData").textContent
-    );
-
-    new Chart(document.getElementById("attendanceChart"), {
-        type: "doughnut",
-        data: {
-            labels: [
-                "Hadir",
-                "Terlambat",
-                "Sakit",
-                "Absen",
-                "Lembur"
-            ],
-            datasets: [{
-                data: [
-                    attendanceData.hadir || 0,
-                    attendanceData.terlambat || 0,
-                    attendanceData.sakit || 0,
-                    attendanceData.absen || 0,
-                    attendanceData.lembur || 0
-                ],
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: "55%",
-            plugins: {
-                legend: {
-                    position: "bottom"
-                },
-
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const values = context.dataset.data;
-                            const total = values.reduce(
-                                (sum, value) => sum + value,
-                                0
-                            );
-                            const value = context.raw;
-                            const percentage = total > 0
-                                ? ((value / total) * 100).toFixed(1)
-                                : 0;
-                            return `${context.label}: ${value} (${percentage}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // CHART STATUS KEHADIRAN
-    new Chart(document.getElementById("attendanceChart"), {
-        type: "doughnut",
-        data: {
-            labels: [
-                "Hadir Tepat Waktu",
-                "Terlambat",
-                "Sakit",
-                "Absen"
-            ],
-            datasets: [{
-                data: [
-                    attendanceData.hadir || 0,
-                    attendanceData.terlambat || 0,
-                    attendanceData.sakit || 0,
-                    attendanceData.absen || 0
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: "55%",
-            plugins: {
-                legend: {
-                    position: "bottom"
-                }
-            }
-        }
-    });
-
-});
 
 // FORMAT BULAN
 function formatMonth(periode) {

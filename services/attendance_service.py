@@ -450,3 +450,60 @@ def calculate_attendance_summary(user_id, periode):
             summary[status] += 1
 
     return summary
+
+def calculate_status_from_time(date_str, checkin):
+    """
+    Menentukan status berdasarkan tanggal dan waktu check-in.
+    Mengikuti aturan process_attendance_recap_incremental().
+    """
+
+    if not checkin:
+        return "A"
+
+    try:
+        check_date = datetime.datetime.strptime(
+            date_str,
+            "%Y-%m-%d"
+        ).date()
+
+        checkin_time = datetime.datetime.strptime(
+            checkin,
+            "%H:%M"
+        ).time()
+
+    except (ValueError, TypeError):
+        return "A"
+
+    # ==========================================
+    # CEK WEEKEND / HARI LIBUR
+    # ==========================================
+
+    is_weekend = check_date.weekday() >= 5
+
+    is_holiday = is_holiday_date(check_date)
+
+    if is_weekend or is_holiday:
+        return "L"
+
+    # ==========================================
+    # DEADLINE
+    # ==========================================
+
+    deadline_str = current_app.config.get(
+        "ATTENDANCE_DEADLINE",
+        "07:11:00"
+    )
+
+    deadline = datetime.datetime.strptime(
+        deadline_str,
+        "%H:%M:%S"
+    ).time()
+
+    # ==========================================
+    # STATUS
+    # ==========================================
+
+    if checkin_time <= deadline:
+        return "H"
+
+    return "T"

@@ -27,3 +27,28 @@
     background-color: #f9e2f7;
     color: #4f309a;
 }
+
+.attendance-time-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.input-time-edit {
+    width: 50px;
+    padding: 2px 4px;
+    font-size: 11px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.no-clock::-webkit-calendar-picker-indicator {
+    display: none;
+    -webkit-appearance: none;
+}
+
+.no-clock {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}

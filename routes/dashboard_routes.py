@@ -12,6 +12,7 @@ from models import DailyAttendance, Employee, LogAbsensi, PayrollSummary
 from services.helper_service import format_periode
 from services.payroll_service import pph_21
 
+from routes.user_routes import login_required
 
 dashboard_bp = Blueprint(
     "dashboard",
@@ -22,7 +23,12 @@ dashboard_bp = Blueprint(
 def index():
     return redirect(url_for("dashboard.dashboard_page"))
 
+@dashboard_bp.route("/login")
+def login_page():
+    return render_template("login.html")
+
 @dashboard_bp.route("/dashboard")
+@login_required
 def dashboard_page():
     today = datetime.date.today()
 
@@ -70,6 +76,9 @@ def dashboard_page():
     attendance_counts = db.session.query(
         DailyAttendance.status,
         db.func.count(DailyAttendance.id)
+    ).join(
+        Employee,
+        Employee.user_id == DailyAttendance.user_id
     ).filter(
         DailyAttendance.date >= month_start,
         DailyAttendance.date <= month_end
@@ -114,6 +123,9 @@ def dashboard_page():
     today_counts = db.session.query(
         DailyAttendance.status,
         db.func.count(DailyAttendance.id)
+    ).join(
+        Employee,
+        Employee.user_id == DailyAttendance.user_id
     ).filter(
         DailyAttendance.date == today_str
     ).group_by(
@@ -204,6 +216,7 @@ def dashboard_page():
     )
 
 @dashboard_bp.route("/api/dashboard")
+@login_required
 def dashboard():
     total_logs = LogAbsensi.query.count()
 
@@ -224,9 +237,18 @@ def dashboard():
     return jsonify(data)
 
 @dashboard_bp.route("/employees")
+@login_required
 def employees_page():
+    today = datetime.date.today()
+    periode_param = request.args.get("periode", today.strftime("%Y-%m"))
+    
+    try:
+        periode_raw = periode_param
+    except ValueError:
+        periode_raw = today.strftime("%Y-%m")
+
     employees = Employee.query.order_by(
-        Employee.position.asc(),
+        # Employee.position.asc(),
         Employee.name.asc()
     ).all()
 
@@ -237,10 +259,12 @@ def employees_page():
 
     return render_template(
         "employees.html",
-        employees=employees
+        employees=employees,
+        periode_raw=periode_raw
     )
 
 @dashboard_bp.route("/attendance")
+@login_required
 def attendance_page():
     today = datetime.date.today()
 
@@ -400,7 +424,178 @@ def attendance_page():
         periode=format_periode(periode_raw)
     )
 
+@dashboard_bp.route("/attendance/time")
+@login_required
+def attendance_time_page():
+    today = datetime.date.today()
+
+    # =========================================================
+    # 0. AMBIL PERIODE DARI QUERY PARAMETER (Default: Bulan Ini)
+    # =========================================================
+    periode_param = request.args.get("periode", today.strftime("%Y-%m"))
+
+    try:
+        year, month_number = map(int, periode_param.split("-"))
+        periode_raw = periode_param
+    except ValueError:
+        year, month_number = today.year, today.month
+        periode_raw = today.strftime("%Y-%m")
+
+    # =========================================================
+    # 1. DAFTAR HARI DALAM BULAN TERPILIH
+    # =========================================================
+
+    total_days = calendar.monthrange(year, month_number)[1]
+
+    month = list(range(1, total_days + 1))
+
+    start_date = f"{year:04d}-{month_number:02d}-01"
+    end_date = f"{year:04d}-{month_number:02d}-{total_days:02d}"
+
+    # =========================================================
+    # 2. AMBIL EMPLOYEE + REKAP ATTENDANCE
+    # =========================================================
+
+    attendance_summary = (
+        db.session.query(
+            Employee.id,
+            Employee.user_id,
+            Employee.name,
+
+            func.sum(
+                case(
+                    (DailyAttendance.status == "H", 1),
+                    else_=0
+                )
+            ).label("hadir"),
+
+            func.sum(
+                case(
+                    (DailyAttendance.status == "T", 1),
+                    else_=0
+                )
+            ).label("terlambat"),
+
+            func.sum(
+                case(
+                    (DailyAttendance.status == "S", 1),
+                    else_=0
+                )
+            ).label("sakit"),
+
+            func.sum(
+                case(
+                    (DailyAttendance.status == "A", 1),
+                    else_=0
+                )
+            ).label("alpha"),
+
+            func.sum(
+                case(
+                    (DailyAttendance.status == "L", 1),
+                    else_=0
+                )
+            ).label("lembur"),
+        )
+        .outerjoin(
+            DailyAttendance,
+            (
+                (Employee.user_id == DailyAttendance.user_id)
+                &
+                (DailyAttendance.date >= start_date)
+                &
+                (DailyAttendance.date <= end_date)
+            )
+        )
+        .filter(Employee.status == "Aktif")
+        .group_by(
+            Employee.id,
+            Employee.user_id,
+            Employee.name
+        )
+        .order_by(Employee.name)
+        .all()
+    )
+
+    # =========================================================
+    # 3. BENTUK DATA EMPLOYEES
+    # =========================================================
+
+    employees = []
+
+    for row in attendance_summary:
+        employees.append({
+            "id": row.id,
+            "user_id": row.user_id,
+            "name": row.name,
+
+            "hadir": row.hadir or 0,
+            "terlambat": row.terlambat or 0,
+            "sakit": row.sakit or 0,
+            "alpha": row.alpha or 0,
+            "lembur": row.lembur or 0,
+        })
+
+    # =========================================================
+    # 4. AMBIL DATA DETAIL ATTENDANCE
+    # =========================================================
+
+    attendance_data = (
+        DailyAttendance.query
+        .filter(
+            DailyAttendance.date >= start_date,
+            DailyAttendance.date <= end_date
+        )
+        .all()
+    )
+
+    # =========================================================
+    # 5. BUAT MATRIX ATTENDANCE (CHECKIN-CHECKOUT)
+    # =========================================================
+
+    attendance_matrix = {}
+
+    for emp in employees:
+        user_id = emp["user_id"]
+        attendance_matrix[user_id] = {}
+        for day in month:
+            attendance_matrix[user_id][day] = {
+                "status": "-",
+                "checkin":"00:00",
+                "checkout": "00:00"
+            }
+
+    for att in attendance_data:
+        try:
+            day = int(att.date.split("-")[2])
+        except (ValueError, IndexError):
+            continue
+
+        if att.user_id in attendance_matrix:            
+            attendance_matrix[att.user_id][day] = {
+                "status": att.status or "-",
+                "checkin": att.checkin or "00:00",
+                "checkout": att.checkout or "00:00"
+            }
+
+    # =========================================================
+    # 6. KIRIM KE TEMPLATE
+    # =========================================================
+
+    return render_template(
+        "attendance_time.html",
+        employees=employees,
+        month=month,
+        attendance_matrix=attendance_matrix,
+        year=year,
+        month_number=str(month_number).zfill(2),
+        periode_raw=periode_raw,
+        periode=format_periode(periode_raw),
+        tes=attendance_data
+    )
+
 @dashboard_bp.route("/attendance/detail")
+@login_required
 def attendance_detail_page():
     today = datetime.date.today()
 
@@ -557,10 +752,12 @@ def attendance_detail_page():
         year=year,
         month_number=str(month_number).zfill(2),
         periode_raw=periode_raw,
-        periode=format_periode(periode_raw)
+        periode=format_periode(periode_raw),
+        tes=attendance_data
     )
 
 @dashboard_bp.route("/payroll")
+@login_required
 def payroll_page():
     # ==========================================================
     # 1. AMBIL PERIODE DARI QUERY PARAMETER (Default: Bulan Ini)
@@ -743,7 +940,7 @@ def payroll_page():
     
     employees_data.sort(
         key=lambda x: (
-            (x["position"] or "-").lower(),
+            # (x["position"] or "-").lower(),
             (x["name"] or "-").lower()
         )
     )

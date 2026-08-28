@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Login - HamasaPayMaster</title>
+
+    <!-- Font & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- CSS Existing -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body style="background-color: var(--primary);">
+
+    <div style="align-content: center; margin: auto;">
+
+        <div class="custom-modal-box" style="min-width: 400px; padding: 40px;">
+
+            <!-- LOGO -->
+            <div style="text-align: center; margin-bottom: 32px;">
+                <!-- TITLE -->  
+                <h3 class="custom-modal-title">
+                    Masuk ke Sistem
+                </h3>
+
+                <div class="logo-text" style="font-size: 27px;">
+                    Hamasa<span>PayMaster</span>
+                </div>
+
+                <div class="text-muted" style="font-size: 15px; margin-top: 6px;">
+                    Sistem Manajemen Gaji & HR
+                </div>
+
+            </div>
+
+            <!-- ERROR -->
+            {% if error %}
+
+            <div
+                 style="position: static; width: 100%; margin-bottom: 18px;">
+
+                <i class="fa-solid fa-circle-xmark text-red"></i>
+
+                <span style="font-size: 14px;">
+                    {{ error }}
+                </span>
+
+            </div>
+
+            {% endif %}
+
+
+            <!-- FORM LOGIN -->
+            <form method="POST" action="/login">
+
+                <!-- USERNAME -->
+                <div class="custom-form-group">
+
+                    <label
+                        class="custom-form-label"
+                        for="username"
+                    >
+                        Username
+                    </label>
+
+                    <div class="input-inline-wrapper">
+
+                        <div class="combobox-wrapper">
+
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                class="custom-form-input"
+                                placeholder="Masukkan username"
+                                autocomplete="username"
+                                required
+                            >
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PASSWORD -->
+                <div class="custom-form-group">
+
+                    <label
+                        class="custom-form-label"
+                        for="password"
+                    >
+                        Password
+                    </label>
+
+                    <div class="input-inline-wrapper">
+
+                        <div class="combobox-wrapper">
+
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                class="custom-form-input"
+                                placeholder="Masukkan password"
+                                autocomplete="current-password"
+                                required
+                            >
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- REMEMBER -->
+                <div style="margin-top: 12px; margin-bottom: 20px;">
+
+                    <label
+                        style="
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            font-size: 12px;
+                            color: var(--text-muted);
+                            cursor: pointer;
+                        "
+                    >
+
+                        <input
+                            type="checkbox"
+                            name="remember"
+                            style="width: auto;"
+                        >
+
+                        Ingat saya
+
+                    </label>
+
+                </div>
+
+
+                <!-- LOGIN BUTTON -->
+                <button
+                    type="submit"
+                    class="custom-btn-submit"
+                    style="background-color:#10B981;"
+                >
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    Masuk ke Sistem
+                </button>
+
+            </form>
+
+
+            <!-- FOOTER -->
+            <div
+                style="
+                    text-align: center;
+                    margin-top: 20px;
+                    font-size: 11px;
+                    color: var(--text-muted);
+                "
+            >
+                Hamasa Iparna Mandiri
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const error = params.get("error");
+
+        console.log(error); // "Invalid"
+
+        if (error) {
+            document.getElementById("error-message").textContent = error;
+        }
+    </script>
+
+    <div id="error-message"></div>
+
+
+</body>
+</html>

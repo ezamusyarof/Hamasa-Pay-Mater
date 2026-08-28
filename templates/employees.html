@@ -28,28 +28,20 @@
             </div>
             <ul class="nav-list">
                 <li class="nav-item" data-page="dashboard">
-                    <a href="/dashboard"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                    <a href="/dashboard?periode={{periode_raw}}"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
                 </li>
                 <li class="nav-item active" data-page="karyawan">
-                    <a href="/employees"><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
+                    <a><i class="fa-solid fa-users"></i> <span>Data Karyawan</span></a>
                 </li>
                 <li class="nav-item" data-page="kehadiran">
-                    <a href="/attendance"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
+                    <a href="/attendance?periode={{periode_raw}}"><i class="fa-solid fa-calendar-check"></i> <span>Kehadiran Karyawan</span></a>
                 </li>
                 <li class="nav-item" data-page="payroll">
-                    <a href="/payroll"><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
+                    <a href="/payroll?periode={{periode_raw}}"><i class="fa-solid fa-wallet"></i> <span>Penggajian (Payroll)</span></a>
                 </li>
             </ul>
         </div>
-        <div class="sidebar-footer">
-            <div class="user-card">
-                <div class="avatar">HIM</div>
-                <div class="user-info">
-                    <span class="user-name">Manager</span>
-                    <span class="user-role">Hamasa Iparna Mandiri</span>
-                </div>
-            </div>
-        </div>
+        {% include 'components/sidebar_footer.html' %}
     </sidebar>
 
     <!-- MAIN CONTENT -->
@@ -230,6 +222,9 @@
         <i class="fa-solid fa-circle-xmark text-red"></i>
         <span id="toast-message-failed">Gagal memproses data. Silakan coba lagi!</span>
     </div>
+
+    {% include 'components/modal_logout.html' %}
+    {% include 'components/modal_edit_password.html' %}
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/employees.js') }}"></script>

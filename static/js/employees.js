@@ -12,7 +12,6 @@ let isEditMode = false;
 let currentPage = 1;
 let activeDeleteState = null;
 let payrollChartInstance = null;
-let attendanceChartInstance = null;
 
 function getCurrentPeriod() {
     const now = new Date();
@@ -21,7 +20,6 @@ function getCurrentPeriod() {
     return `${year}-${month}`;
 }
 
-// Inisialisasi master komponen default tanpa LocalStorage
 let masterComponentNames = [
     "Tunjangan Transport",
     "Tunjangan Uang Makan",
@@ -162,58 +160,6 @@ function resetEditButtons() {
     }
 }
 
-async function saveAttendance() {
-    const btnMain = document.getElementById('btnMainAttendance');
-    if (btnMain) {
-        btnMain.disabled = true;
-        btnMain.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...`;
-    }
-
-    const payload = [];
-    Object.keys(tempAttendanceData).forEach(key => {
-        const parts = key.split('_');
-        const user_id = parts[0];
-        const date = parts[1];
-        const status = tempAttendanceData[key].status;
-        payload.push({ user_id, date, status });
-    });
-
-    try {
-        const response = await fetch('/api/attendance/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-            showToast(result.message || "Absensi berhasil disimpan!");
-            isEditMode = false;
-            tempAttendanceData = {};
-            resetEditButtons();
-
-            const selectElem = document.getElementById("selectPeriode");
-            // await loadAttendanceData(selectElem ? selectElem.value : "2026-08");
-        } else {
-            showToastFailed(result.message || "Gagal menyimpan perubahan.");
-            if (btnMain) {
-                btnMain.disabled = false;
-                btnMain.className = "btn btn-primary";
-                btnMain.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Kehadiran`;
-            }
-        }
-    } catch (e) {
-        console.error("Error saving attendance:", e);
-        showToastFailed("Terjadi kesalahan koneksi ke server.");
-        if (btnMain) {
-            btnMain.disabled = false;
-            btnMain.className = "btn btn-primary";
-            btnMain.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Kehadiran`;
-        }
-    }
-}
-
 let expandedEmpIds = new Set();
 
 function toggleExpand(empId) {
@@ -237,32 +183,6 @@ function formatRupiahInput(input) {
     }
 }
 
-function setDeleteConfirm(empId, type, index) {
-    activeDeleteState = { empId, type, index };
-    renderPayrollTable();
-}
-
-function cancelDeleteConfirm() {
-    activeDeleteState = null;
-    renderPayrollTable();
-}
-
-function executeRemoveItem(empId, type, index) {
-    const emp = employees.find(e => String(e.id) === String(empId));
-    if (emp) {
-        if (type === 'tunjangan' && emp.tunjanganList) {
-            emp.tunjanganList.splice(index, 1);
-        } else if (type === 'bonus' && emp.bonusList) {
-            emp.bonusList.splice(index, 1);
-        } else if (type === 'potongan' && emp.potonganList) {
-            emp.potonganList.splice(index, 1);
-        }
-        savePayrollComponentsToStorage(); 
-    }
-    activeDeleteState = null;
-    renderPayrollTable();
-}
-
 function generateWALink(emp) {
     const calc = calculateSalaryDetails(emp);
     const phone = emp.phone || emp.wa || '';
@@ -278,58 +198,6 @@ Berikut adalah rincian *Slip Gaji* Anda:
 _Terima kasih atas kerja keras Anda!_`;
     
     return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
-}
-
-function sendSingleWhatsapp(id) {
-    const emp = employees.find(e => String(e.id) === String(id));
-    if (!emp) return;
-    emp.statusWA = 'Terkirim';
-    const url = generateWALink(emp);
-    window.open(url, '_blank');
-    showToast(`Slip Gaji terkirim ke WhatsApp ${emp.name}`);
-    renderPayrollTable();
-}
-
-function sendAllWhatsapp() {
-    if (!employees || employees.length === 0) {
-        showToastFailed('Tidak ada data karyawan!');
-        return;
-    }
-    let count = 0;
-    employees.forEach(emp => {
-        if (emp.phone || emp.wa) {
-            const url = generateWALink(emp);
-            window.open(url, '_blank');
-            emp.statusWA = 'Terkirim';
-            count++;
-        }
-    });
-    showToast(`Slip Gaji dikirim ke ${count} karyawan via WhatsApp.`);
-    renderPayrollTable();
-}
-
-function downloadPDF() {
-    const element = document.getElementById('payslip-render-area');
-    if (!element) return;
-    const opt = {
-        margin: 10,
-        filename: `Slip_Gaji_${activeSlipEmpId || 'Karyawan'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    html2pdf().set(opt).from(element).save();
-}
-
-function downloadPNG() {
-    const element = document.getElementById('payslip-render-area');
-    if (!element) return;
-    html2canvas(element, { scale: 2 }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = `Slip_Gaji_${activeSlipEmpId || 'Karyawan'}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    });
 }
 
 async function openEmpModal(id = null) {
@@ -451,7 +319,6 @@ function openDeleteConfirmModal(id, name) {
 
     document.getElementById('confirmDeleteModal').classList.add('active');
 }
-
 
 function closeDeleteConfirmModal() {
     employeeToDeleteId = null;

@@ -12,7 +12,6 @@ let isEditMode = false;
 let currentPage = 1;
 let activeDeleteState = null;
 let payrollChartInstance = null;
-let attendanceChartInstance = null;
 
 function getCurrentPeriod() {
     const now = new Date();
@@ -21,7 +20,6 @@ function getCurrentPeriod() {
     return `${year}-${month}`;
 }
 
-// Inisialisasi master komponen default tanpa LocalStorage
 let masterComponentNames = [
     "Tunjangan Transport",
     "Tunjangan Uang Makan",
@@ -71,167 +69,6 @@ function getEmpKey(emp) {
 
 function getEmployeeDisplayId(emp) {
     return emp?.user_id || emp?.employeeId || emp?.id || '-';
-}
-
-function updateTempData(selectElem) {
-    const key = selectElem.dataset.key;
-    const newStatus = selectElem.value;
-
-    if (!tempAttendanceData[key]) {
-        tempAttendanceData[key] = { status: "", checkin: null, checkout: null };
-    }
-    
-    tempAttendanceData[key].status = newStatus;
-    selectElem.setAttribute('data-status', newStatus);
-}
-
-function renderTable() {
-    console.log("--- MENJALANKAN renderTable ---");
-    console.log("Jumlah Employees:", employees ? employees.length : "employees belum ada / kosong!");
-
-    const selectElem = document.getElementById("selectPeriode");
-    const periode = selectElem ? selectElem.value : "2026-08"; 
-    
-    const [year, month] = periode.split('-').map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
-
-    const theadTr = document.getElementById("tableHeader");
-    if (theadTr) {
-        let headerHTML = `<th class="sticky-col text-center"><b>Nama Karyawan</b></th>`;
-        for (let day = 1; day <= daysInMonth; day++) {
-            headerHTML += `<th class="text-center">${day}</th>`;
-        }
-        theadTr.innerHTML = headerHTML;
-    } else {
-        console.warn("Elemen #tableHeader tidak ditemukan di HTML!");
-    }
-
-    const tbody = document.getElementById("tableBody");
-    if (!tbody) {
-        console.error("GAGAL: Elemen #tableBody tidak ditemukan di HTML!");
-        return;
-    }
-    
-    let bodyHTML = "";
-    const activeDataset = (typeof isEditMode !== 'undefined' && isEditMode) ? tempAttendanceData : attendanceData;
-
-    if (!employees || employees.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="32" class="text-center text-muted">Data karyawan kosong.</td></tr>`;
-        return;
-    }
-
-    employees.forEach(emp => {
-        const empName = emp.name || emp.nama || 'Karyawan';
-        const empKey = typeof getEmpKey === 'function' ? getEmpKey(emp) : (emp.user_id || emp.id);
-
-        bodyHTML += `<tr>`;
-        bodyHTML += `<td class="sticky-col"><b>${empName}</b></td>`;
-
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dayStr = String(day).padStart(2, '0');
-            const dataKey = `${empKey}_${periode}-${dayStr}`;
-            const attendance = activeDataset ? activeDataset[dataKey] : null;
-            const status = attendance?.status || "";
-
-            if (day === 1) {
-                console.log(`Cek DataKey untuk Karyawan [${empName} | Key: ${empKey}]:`, dataKey, "Hasil:", attendance);
-            }
-
-            if (typeof isEditMode !== 'undefined' && isEditMode) {
-                bodyHTML += `
-                    <td class="text-center align-middle p-1">
-                        <select class="select-status-edit" 
-                                data-status="${status}"
-                                data-key="${dataKey}" 
-                                onchange="updateTempData(this)">
-                            <option value="" ${status === '' ? 'selected' : ''}>-</option>
-                            <option value="H" ${status === 'H' ? 'selected' : ''}>H</option>
-                            <option value="T" ${status === 'T' ? 'selected' : ''}>T</option>
-                            <option value="S" ${status === 'S' ? 'selected' : ''}>S</option>
-                            <option value="A" ${status === 'A' ? 'selected' : ''}>A</option>
-                            <option value="L" ${status === 'L' ? 'selected' : ''}>L</option>
-                        </select>
-                    </td>`;
-            } else {
-                const displayLabel = status === "" ? "-" : status;
-                bodyHTML += `
-                    <td class="text-center align-middle p-1">
-                        <span class="status-badge" data-status="${status}">${displayLabel}</span>
-                    </td>`;
-            }
-        }
-        bodyHTML += `</tr>`;
-    });
-
-    tbody.innerHTML = bodyHTML;
-    console.log("--- RENDER SELESAI ---");
-}
-
-function resetEditButtons() {
-    const btnMain = document.getElementById('btnMainAttendance');
-    const btnCancel = document.getElementById('btnCancelEdit');
-
-    if (btnMain) {
-        btnMain.className = "btn btn-outline-primary";
-        btnMain.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> Edit Presensi`;
-        btnMain.disabled = false;
-    }
-
-    if (btnCancel) {
-        btnCancel.classList.add('d-none');
-    }
-}
-
-async function saveAttendance() {
-    const btnMain = document.getElementById('btnMainAttendance');
-    if (btnMain) {
-        btnMain.disabled = true;
-        btnMain.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...`;
-    }
-
-    const payload = [];
-    Object.keys(tempAttendanceData).forEach(key => {
-        const parts = key.split('_');
-        const user_id = parts[0];
-        const date = parts[1];
-        const status = tempAttendanceData[key].status;
-        payload.push({ user_id, date, status });
-    });
-
-    try {
-        const response = await fetch('/api/attendance/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-            showToast(result.message || "Absensi berhasil disimpan!");
-            isEditMode = false;
-            tempAttendanceData = {};
-            resetEditButtons();
-
-            const selectElem = document.getElementById("selectPeriode");
-            // await loadAttendanceData(selectElem ? selectElem.value : "2026-08");
-        } else {
-            showToastFailed(result.message || "Gagal menyimpan perubahan.");
-            if (btnMain) {
-                btnMain.disabled = false;
-                btnMain.className = "btn btn-primary";
-                btnMain.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Kehadiran`;
-            }
-        }
-    } catch (e) {
-        console.error("Error saving attendance:", e);
-        showToastFailed("Terjadi kesalahan koneksi ke server.");
-        if (btnMain) {
-            btnMain.disabled = false;
-            btnMain.className = "btn btn-primary";
-            btnMain.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Kehadiran`;
-        }
-    }
 }
 
 let expandedEmpIds = new Set();
@@ -307,12 +144,119 @@ async function executeRemoveItem(itemId) {
         if (!response.ok) {
             throw new Error(result.error || 'Gagal menghapus item');
         }
+        console.log(result)
 
-        window.location.href = '/payroll';
+        updatePayrollAfterDelete(result);
 
     } catch (error) {
         console.error(error);
         alert("Gagal menghapus komponen: " + error.message);
+    }
+}
+
+function updatePayrollAfterDelete(result) {
+
+    // Cari elemen yang memiliki itemId
+    const deleteButton = document.querySelector(
+        `button[onclick="executeRemoveItem('${result.item_id}')"]`
+    );
+
+    if (!deleteButton) {
+        console.warn(
+            `Item ${result.item_id} tidak ditemukan di DOM`
+        );
+        return;
+    }
+
+    // Ambil container card item
+    const deleteElement = deleteButton.closest(
+        '[id*="-delete-"]'
+    );
+
+    if (!deleteElement) return;
+
+    const normalId = deleteElement.id.replace(
+        '-delete-',
+        '-normal-'
+    );
+
+    const normalElement =
+        document.getElementById(normalId);
+
+    const row = normalElement
+        ? normalElement.closest('tr')
+        : null;
+        
+    // Hapus card item
+    if (normalElement) {
+        normalElement.remove();
+    }
+
+    // Hapus area konfirmasi delete
+    deleteElement.remove();
+
+
+    // ==========================================
+    // Update total
+    // ==========================================
+
+
+    if (!row) return;
+
+
+    const formatRupiah = (value) => {
+        return new Intl.NumberFormat('id-ID').format(
+            Number(value) || 0
+        );
+    };
+
+
+    const totalPenambahanElement =
+        row.querySelector('[data-total-penambahan]');
+
+    const totalPotonganElement =
+        row.querySelector('[data-total-potongan]');
+
+    const thpElement =
+        row.querySelector('[data-thp]');
+
+    const pph21Element =
+        row.querySelector('[data-pph21]');
+
+    const thpAfterTaxElement =
+        row.querySelector('[data-thp-after-tax]');
+
+    if (totalPenambahanElement) {
+        totalPenambahanElement.textContent =
+            `Rp ${formatRupiah(result.total_penambahan)}`;
+    }
+
+    if (totalPotonganElement) {
+        totalPotonganElement.textContent =
+            `Rp ${formatRupiah(result.total_potongan)}`;
+    }
+
+    if (thpElement) {
+        thpElement.textContent =
+            `Rp ${formatRupiah(result.thp)}`;
+    }
+
+    if (pph21Element) {
+        pph21Element.textContent =
+            `- Rp ${formatRupiah(result.pph21)}`;
+    }
+
+    if (thpAfterTaxElement) {
+        thpAfterTaxElement.textContent =
+            `Rp ${formatRupiah(result.thp_after_tax)}`;
+    }
+
+
+    // Feedback
+    if (typeof showToast === 'function') {
+        showToast(
+            'Komponen berhasil dihapus'
+        );
     }
 }
 
@@ -413,16 +357,13 @@ function closeEmpModal() {
     editingEmployeeId = null;
 }
 
-function openDeleteConfirmModal(id, name) {
-    document.getElementById('deleteConfirmName').innerText =
-        name || 'Karyawan ini';
-
+function openDeleteConfirmModal() {
+    document.getElementById('deleteConfirmName').innerText = 'Karyawan ini';
     document.getElementById('confirmDeleteModal').classList.add('active');
 }
 
-function closeDeleteConfirmModal() {
-    employeeToDeleteId = null;
-    document.getElementById('confirmDeleteModal').classList.remove('active');
+function closeDeletePayrollConfirmModal() {
+    document.getElementById('confirmDeletePayrollModal').classList.remove('active');
 }
 
 function deleteEmployee(id) {
@@ -525,15 +466,34 @@ function escapeHtml(value) {
         .replace(/'/g, "&#039;");
 }
 
-function openSlipModal(employeeId) {
+async function openSlipModal(employeeId) {
 
     // ==========================================================
     // AMBIL DATA EMPLOYEE
     // ==========================================================
+    const periode = document.getElementById("selectPeriode").value;
 
-    const employeesData = JSON.parse(
+    const response = await fetch(
+        `/api/payroll/slip/${employeeId}?periode=${periode}`
+    );
+
+    const employeesData = (await response.json()).employees_json;
+
+
+    if (!response.ok) {
+        showToastFailed(
+            employeesData.error || "Gagal mengambil data slip gaji"
+        );
+        return;
+    }
+
+    console.log("TESS: ",employeesData)
+    
+    const employeesDataOri = JSON.parse(
         document.getElementById("employees-data").textContent
     );
+
+    console.log("TESS: ",employeesDataOri)
 
     const config = JSON.parse(
         document.getElementById("payroll-config").textContent
@@ -621,6 +581,9 @@ function openSlipModal(employeeId) {
         "slip-name"
     ).textContent = employee.name || "-";
 
+    document.getElementById('slipGajiBtnPNG').onclick = () => downloadSlipPNG(employee.name,monthNames[monthIndex]);
+    document.getElementById('slipGajiBtnPDF').onclick = () => downloadSlipPDF(employee.name,monthNames[monthIndex]);
+
     document.getElementById(
         "slip-position"
     ).textContent = employee.position || "-";
@@ -674,18 +637,29 @@ function openSlipModal(employeeId) {
 
     tunjanganContainer.innerHTML = "";
 
+    const usedItems = new Set();
+
     daftarKomponen.tunjangan.forEach(
         (namaKomponen, index) => {
 
             const letter =
                 String.fromCharCode(66 + index);
 
-            // Cari komponen yang sudah memiliki data nominal
-            const item = (employee.tunjanganList || []).find(
-                item => item.name === namaKomponen
+            // Cari SATU item yang belum digunakan
+            const itemIndex = (employee.tunjanganList || []).findIndex(
+                item =>
+                    item.name === namaKomponen &&
+                    !usedItems.has(item)
             );
 
-            // Jika tidak ada, nominal dianggap 0
+            const item = itemIndex !== -1
+                ? employee.tunjanganList[itemIndex]
+                : null;
+
+            if (item) {
+                usedItems.add(item);
+            }
+
             const amount = item
                 ? Number(item.amount || 0)
                 : 0;
@@ -709,6 +683,44 @@ function openSlipModal(employeeId) {
             `;
         }
     );
+
+
+    // ==========================================
+    // Tambahkan item yang tidak masuk daftar utama
+    // atau item duplikat
+    // ==========================================
+
+    const remainingItems = (employee.tunjanganList || [])
+        .filter(item => !usedItems.has(item));
+
+    remainingItems.forEach((item, index) => {
+
+        const letter =
+            String.fromCharCode(
+                66 + daftarKomponen.tunjangan.length + index
+            );
+
+        const amount =
+            Number(item.amount || 0);
+
+        tunjanganContainer.innerHTML += `
+            <div class="slip-dynamic-item">
+
+                <span>
+                    ${letter}. ${escapeHtml(item.name)}
+                </span>
+
+                <b>:</b>
+
+                <span>Rp</span>
+
+                <strong>
+                    ${formatRupiah(amount)}
+                </strong>
+
+            </div>
+        `;
+    });
 
 
     // ==========================================================
@@ -834,41 +846,102 @@ function openSlipModal(employeeId) {
 
     potonganContainer.innerHTML = "";
 
-        daftarKomponen.potongan.forEach(
-            (namaKomponen, index) => {
+    // const usedItems = new Set();
 
-                const letter =
-                    String.fromCharCode(66 + index);
+    daftarKomponen.potongan.forEach(
+        (namaKomponen, index) => {
 
-                // Cari data komponen yang sudah tersimpan
-                const item = (employee.potonganList || []).find(
-                    item => item.name === namaKomponen
+            const letter =
+                String.fromCharCode(66 + index);
+
+            // Cari SATU item yang belum digunakan
+            const itemIndex =
+                (employee.potonganList || []).findIndex(
+                    item =>
+                        item.name === namaKomponen &&
+                        !usedItems.has(item)
                 );
 
-                // Jika belum ada, nominal dianggap 0
-                const amount = item
-                    ? Number(item.amount || 0)
-                    : 0;
+            const item = itemIndex !== -1
+                ? employee.potonganList[itemIndex]
+                : null;
 
-                potonganContainer.innerHTML += `
-                    <div class="slip-dynamic-item">
-
-                        <span>
-                            ${letter}. ${escapeHtml(namaKomponen)}
-                        </span>
-
-                        <b>:</b>
-
-                        <span>Rp</span>
-
-                        <strong>
-                            ${formatRupiah(amount)}
-                        </strong>
-
-                    </div>
-                `;
+            if (item) {
+                usedItems.add(item);
             }
-        );
+
+            const amount = item
+                ? Number(item.amount || 0)
+                : 0;
+            
+            if (namaKomponen == "Potongan Absen" && amount == 0) {
+                document.getElementById(
+                    "slip-absen"
+                ).textContent =
+                    `0 Hari`;
+            }
+
+            potonganContainer.innerHTML += `
+                <div class="slip-dynamic-item">
+
+                    <span>
+                        ${letter}. ${escapeHtml(namaKomponen)}
+                    </span>
+
+                    <b>:</b>
+
+                    <span>Rp</span>
+
+                    <strong>
+                        ${formatRupiah(amount)}
+                    </strong>
+
+                    
+
+                </div>
+            `;
+        }
+    );
+
+
+    // ==========================================================
+    // Tambahkan potongan di luar daftarKomponen
+    // ke bagian paling bawah
+    // ==========================================================
+
+    (employee.potonganList || []).forEach(item => {
+
+        // Lewati item yang sudah ditampilkan
+        if (usedItems.has(item)) {
+            return;
+        }
+
+        const index =
+            usedItems.size;
+
+        const letter =
+            String.fromCharCode(66 + index);
+
+        potonganContainer.innerHTML += `
+            <div class="slip-dynamic-item">
+
+                <span>
+                    ${letter}. ${escapeHtml(item.name)}
+                </span>
+
+                <b>:</b>
+
+                <span>Rp</span>
+
+                <strong>
+                    ${formatRupiah(item.amount)}
+                </strong>
+
+            </div>
+        `;
+
+        usedItems.add(item);
+    });
 
 
     // ==========================================================
@@ -987,156 +1060,102 @@ function printSlip() {
     }, 500);
 }
 
+// Create slip gaji
 function createSlipExportClone() {
     const slip = document.getElementById("slipPreview");
-
     if (!slip) {
         console.error("Element #slipPreview tidak ditemukan.");
         return null;
     }
-
     const clone = slip.cloneNode(true);
-
-    // Posisi di luar layar agar tidak mengganggu UI
     clone.style.position = "absolute";
     clone.style.left = "-99999px";
     clone.style.top = "0";
-
-    // Hilangkan batas scroll
     clone.style.maxHeight = "none";
     clone.style.height = "auto";
     clone.style.overflow = "visible";
     clone.style.overflowY = "visible";
     clone.style.overflowX = "visible";
-
-    // Pastikan lebar mengikuti slip asli
     clone.style.width = `${slip.offsetWidth}px`;
-
-    // Tambahkan ke body agar html2canvas bisa merendernya
     document.body.appendChild(clone);
-
     return clone;
 }
-async function downloadSlipPNG() {
+
+// Membuat slip gaji PNG
+async function downloadSlipPNG(name,month) {
     const clone = createSlipExportClone();
-
-    if (!clone) {
-        return;
-    }
-
+    if (!clone) { return; }
     try {
-
-        // Tunggu layout selesai
         await new Promise(resolve => setTimeout(resolve, 100));
-
         const canvas = await html2canvas(clone, {
             scale: 2,
             useCORS: true,
             backgroundColor: "#ffffff",
-
-            // Paksa mengambil seluruh tinggi clone
             width: clone.scrollWidth,
             height: clone.scrollHeight,
             windowWidth: clone.scrollWidth,
             windowHeight: clone.scrollHeight
         });
-
         const link = document.createElement("a");
-
-        link.download = "slip-gaji.png";
+        link.download = "Slip Gaji "+month+" - "+name+".png";
         link.href = canvas.toDataURL("image/png");
-
         link.click();
-
     } catch (error) {
-
         console.error("Gagal membuat PNG:", error);
-
     } finally {
-
-        // Hapus clone
         clone.remove();
     }
 }
 
-async function downloadSlipPDF() {
+// Membuat slip gaji PDF
+async function downloadSlipPDF(name,month) {
     const clone = createSlipExportClone();
-
-    if (!clone) {
-        return;
-    }
-
+    if (!clone) { return; }
     try {
-
         await new Promise(resolve => setTimeout(resolve, 100));
-
         const canvas = await html2canvas(clone, {
             scale: 2,
             useCORS: true,
             backgroundColor: "#ffffff",
-
             width: clone.scrollWidth,
             height: clone.scrollHeight,
             windowWidth: clone.scrollWidth,
             windowHeight: clone.scrollHeight
         });
-
         const imgData = canvas.toDataURL("image/png");
-
         const { jsPDF } = window.jspdf;
-
         const pdf = new jsPDF({
             orientation: "portrait",
             unit: "mm",
             format: "a4"
         });
-
         const pageWidth = 210;
         const pageHeight = 297;
-
         const margin = 10;
-
         const availableWidth = pageWidth - margin * 2;
         const availableHeight = pageHeight - margin * 2;
-
         const imgWidth = canvas.width;
         const imgHeight = canvas.height;
-
         const ratio = Math.min(
             availableWidth / imgWidth,
             availableHeight / imgHeight
         );
-
         const finalWidth = imgWidth * ratio;
         const finalHeight = imgHeight * ratio;
-
         const x = (pageWidth - finalWidth) / 2;
         const y = margin;
-
-        pdf.addImage(
-            imgData,
-            "PNG",
-            x,
-            y,
-            finalWidth,
-            finalHeight
-        );
-
-        pdf.save("slip-gaji.pdf");
-
+        pdf.addImage( imgData, "PNG", x, y, finalWidth, finalHeight );
+        pdf.save("Slip Gaji "+month+" - "+name+".pdf");
     } catch (error) {
-
         console.error("Gagal membuat PDF:", error);
-
     } finally {
-
         clone.remove();
     }
 }
 
+// Membuat Payroll untuk Seluruh Karyawan
 async function createAllPayrollByMonth() {
     const periode = document.getElementById("selectPeriode").value;
-
     const response = await fetch("/api/payroll/generate", {
         method: "POST",
         headers: {
@@ -1146,32 +1165,21 @@ async function createAllPayrollByMonth() {
             periode: periode
         })
     });
-
-    // Refresh halaman / data payroll
     location.reload();
-
     const result = await response.json();
-
-    console.log(result);
+    showToast("Payroll untuk semua karyawan berhasil dibuat")
 }
 
-async function deleteAllPayrollByMonth() {
+// Membuka modal konfirmasi Hapus Payroll Bulan terpilih
+async function openConfirmDeletePayrollModal() {
+    document.getElementById('confirmDeletePayrollModal').classList.add('active');
+}
+
+// Menghapus Payroll Bulan terpilih
+async function confirmDeletePayroll() {
     const periode = document.getElementById("selectPeriode").value;
-
-    if (!periode) {
-        return;
-    }
-
-    const yakin = confirm(
-        `Apakah Anda yakin ingin menghapus seluruh payroll periode ${periode}?`
-    );
-
-    if (!yakin) {
-        return;
-    }
-
+    if (!periode) { return; }
     try {
-
         const response = await fetch(
             "/api/payroll/delete",
             {
@@ -1184,25 +1192,16 @@ async function deleteAllPayrollByMonth() {
                 })
             }
         );
-
         const result = await response.json();
-
         if (!response.ok) {
             showToastFailed(
                 result.message || "Gagal menghapus payroll"
             );
         }
-
         showToast(result.message);
-
-        // Refresh halaman / data payroll
         location.reload();
-
     } catch (error) {
-
         console.error(error);
-
         showToastFailed(error.message);
-
     }
 }

@@ -41,18 +41,18 @@ function getMasterComponentNames() {
     return window.masterComponentNames;
 }
 
-function updateTempData(selectElem) {
-    selectElem.classList.remove(
-        "status-H",
-        "status-T",
-        "status-S",
-        "status-A",
-        "status-L"
-    );
+function updateTempData(inputElem) {
+    const userId = inputElem.dataset.userId;
+    const date = inputElem.dataset.date;
+    const type = inputElem.dataset.type;
+    const value = inputElem.value;
 
-    if (selectElem.value) {
-        selectElem.classList.add(`status-${selectElem.value}`);
-    }
+    console.log({
+        user_id: userId,
+        date: date,
+        type: type,
+        value: value
+    });
 }
 
 async function renderTable() {
@@ -64,7 +64,7 @@ async function renderTable() {
 
     try {
         const response = await fetch(
-            `/api/attendance/detail?periode=${periode}`
+            `/api/attendance/time?periode=${periode}`
         );
 
         if (!response.ok) {
@@ -125,62 +125,61 @@ async function renderTable() {
                 const dayStr =
                     String(day).padStart(2, '0');
 
-                const status =
-                    emp.daily_status?.[dayStr] || "";
+                const status = emp.daily_status?.[dayStr]['status'] || "";
+                const checkin = emp.daily_status?.[dayStr]['checkin'].substring(0, 5) || "";
+                const checkout = emp.daily_status?.[dayStr]['checkout'].substring(0, 5) || "";
 
                 if (isEditMode) {
 
                     bodyHTML += `
                         <td class="text-center align-middle p-1">
-                            <select
-                                class="select-status-edit  status-${status}"
-                                data-user-id="${emp.user_id}"
-                                data-date="${periode}-${dayStr}"
-                                onchange="updateTempData(this)"
-                            >
-                                <option value="-"
-                                    ${status === "" ? "selected" : ""}>
-                                    -
-                                </option>
+                            <div class="attendance-time-edit">
 
-                                <option value="H"
-                                    ${status === "H" ? "selected" : ""}>
-                                    H
-                                </option>
+                                <input
+                                    type="time"
+                                    step="60"
+                                    class="input-time-edit no-clock status-badge status-${status}"
+                                    data-user-id="${emp.user_id}"
+                                    data-date="${periode}-${dayStr}"
+                                    data-type="checkin"
+                                    value="${checkin || ""}"
+                                    onchange="updateTempData(this)"
+                                >
 
-                                <option value="T"
-                                    ${status === "T" ? "selected" : ""}>
-                                    T
-                                </option>
+                                <input
+                                    type="time"
+                                    step="60"
+                                    class="input-time-edit no-clock status-badge status-${status}"
+                                    data-user-id="${emp.user_id}"
+                                    data-date="${periode}-${dayStr}"
+                                    data-type="checkout"
+                                    value="${checkout || ""}"
+                                    onchange="updateTempData(this)"
+                                >
 
-                                <option value="S"
-                                    ${status === "S" ? "selected" : ""}>
-                                    S
-                                </option>
-
-                                <option value="A"
-                                    ${status === "A" ? "selected" : ""}>
-                                    A
-                                </option>
-
-                                <option value="L"
-                                    ${status === "L" ? "selected" : ""}>
-                                    L
-                                </option>
-                            </select>
+                            </div>
                         </td>
                     `;
 
                 } else {
-
-                    const displayLabel =
+                    
+                    let displayLabel =
                         status === "" ? "-" : status;
+                    
+                    if (checkin == "" && checkout == ""){
+                        displayLabel = status;
+                    } else {
+                        checkinStr = checkin?.substring(0, 5) || "-"
+                        checkoutStr = checkout?.substring(0, 5) || "-";
+                        displayLabel = checkinStr + "<br>" + checkoutStr
+                    }
 
                     bodyHTML += `
                         <td class="text-center align-middle p-1">
                             <span
-                                class="status-badge status-${status}">
+                                class="time-badge status-${status}">
                                 ${displayLabel}
+                                
                             </span>
                         </td>
                     `;
@@ -261,31 +260,57 @@ async function saveAttendance() {
         `;
     }
 
-    // Ambil data langsung dari tabel
-    const selects = document.querySelectorAll(
-        '#attendanceTable .select-status-edit'
+    // =========================================================
+    // AMBIL SEMUA INPUT CHECKIN & CHECKOUT
+    // =========================================================
+
+    const timeInputs = document.querySelectorAll(
+        '#attendanceTable .input-time-edit'
     );
 
-    const payload = [];
+    const attendanceMap = {};
 
-    selects.forEach(select => {
-        const user_id = select.dataset.userId;
-        const date = select.dataset.date;
-        const status = select.value;
+    timeInputs.forEach(input => {
 
-        if (user_id && date) {
-            payload.push({
+        const user_id = input.dataset.userId;
+        const date = input.dataset.date;
+        const type = input.dataset.type;
+        const value = input.value;
+
+        if (!user_id || !date) {
+            return;
+        }
+
+        const key = `${user_id}_${date}`;
+
+        // Buat object jika belum ada
+        if (!attendanceMap[key]) {
+            attendanceMap[key] = {
                 user_id,
                 date,
-                status
-            });
+                checkin: "",
+                checkout: ""
+            };
+        }
+
+        // Masukkan waktu sesuai type
+        if (type === "checkin") {
+            attendanceMap[key].checkin = value;
+        }
+
+        if (type === "checkout") {
+            attendanceMap[key].checkout = value;
         }
     });
+
+    // Ubah object menjadi array
+    const payload = Object.values(attendanceMap);
 
     console.log("Data yang dikirim:", payload);
 
     try {
-        const response = await fetch('/api/attendance/save', {
+
+        const response = await fetch('/api/attendance/save/time', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -296,6 +321,7 @@ async function saveAttendance() {
         const result = await response.json();
 
         if (response.ok) {
+
             showToast(
                 result.message || "Absensi berhasil disimpan!"
             );
@@ -303,22 +329,28 @@ async function saveAttendance() {
             isEditMode = false;
             resetEditButtons();
 
-            // Kembalikan tombol ke mode Edit Presensi
             if (btnMain) {
                 btnMain.disabled = false;
                 btnMain.className = "btn btn-primary";
+
                 btnMain.innerHTML = `
                     <i class="fa-solid fa-pen-to-square"></i>
                     Edit Presensi
                 `;
             }
 
-            window.location.href = '/attendance/detail';
+            window.location.href = '/attendance/time';
 
             return;
         }
 
+        // Jika response bukan 2xx
+        showToastFailed(
+            result.message || "Gagal menyimpan absensi."
+        );
+
     } catch (error) {
+
         console.error("Error saving attendance:", error);
 
         showToastFailed(
@@ -326,9 +358,11 @@ async function saveAttendance() {
         );
 
     } finally {
+
         if (btnMain) {
             btnMain.disabled = false;
             btnMain.className = "btn btn-primary";
+
             btnMain.innerHTML = `
                 <i class="fa-solid fa-floppy-disk"></i>
                 Simpan Kehadiran

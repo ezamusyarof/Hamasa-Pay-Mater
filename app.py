@@ -34,11 +34,13 @@ def create_app():
 
     db.init_app(app)
 
+    from routes.user_routes import user_bp
     from routes.dashboard_routes import dashboard_bp
     from routes.employee_routes import employee_bp
     from routes.attendance_routes import attendance_bp
     from routes.payroll_routes import payroll_bp
 
+    app.register_blueprint(user_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(employee_bp)
     app.register_blueprint(attendance_bp)
@@ -61,10 +63,10 @@ app.config["ATTENDANCE_DEADLINE"] = os.getenv("ATTENDANCE_DEADLINE", "07:13:00")
 app.config["ATTENDANCE_START_TIME"] = os.getenv("ATTENDANCE_START_TIME", "00:00:00")
 app.config["ATTENDANCE_END_TIME"] = os.getenv("ATTENDANCE_EN_TIME", "23:59:00")
 
-from routes.dashboard_routes import dashboard_bp
-from routes.employee_routes import employee_bp
-from routes.attendance_routes import attendance_bp
-from routes.payroll_routes import payroll_bp
+# from routes.dashboard_routes import dashboard_bp
+# from routes.employee_routes import employee_bp
+# from routes.attendance_routes import attendance_bp
+# from routes.payroll_routes import payroll_bp
 
 # app.register_blueprint(dashboard_bp)
 # app.register_blueprint(employee_bp)

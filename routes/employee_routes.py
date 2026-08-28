@@ -2,6 +2,7 @@ import datetime
 from sqlite3 import IntegrityError
 from models import Employee, PayrollItem, PayrollSummary
 from flask import Blueprint, jsonify, request
+from routes.user_routes import login_required
 from services.attendance_service import process_attendance_recap_incremental
 from services.payroll_service import calculate_employee_payroll, pph_21
 from extensions import db
@@ -13,6 +14,7 @@ employee_bp = Blueprint(
 )
 
 @employee_bp.route("", methods=["GET"])
+@login_required
 def get_employees():
     periode = request.args.get(
         "periode",
@@ -101,6 +103,7 @@ def get_employees():
     return jsonify(data)
 
 @employee_bp.route("", methods=["POST"])
+@login_required
 def add_employee():
     data = request.get_json(silent=True) or {}
     user_id = (data.get("user_id") or "").strip()
@@ -188,7 +191,9 @@ def add_employee():
     }), 201
 
 @employee_bp.route("/<int:id>", methods=["PUT"])
+@login_required
 def update_employee(id):
+
     employee = Employee.query.get_or_404(id)
     data = request.get_json(silent=True) or {}
 
@@ -211,10 +216,13 @@ def update_employee(id):
 
     try:
         new_basic_salary = float(new_basic_salary)
+
     except (ValueError, TypeError):
+
         return jsonify({
             "message": "Gaji pokok harus berupa angka."
         }), 400
+
 
     try:
 
@@ -264,11 +272,9 @@ def update_employee(id):
 
         employee.basic_salary = new_basic_salary
 
-        print(employee.basic_salary)
 
         # ======================================================
-        # JIKA GAJI BERUBAH
-        # UPDATE PAYROLL PERIODE BERJALAN SAJA
+        # HAPUS PAYROLL PERIODE BERJALAN
         # ======================================================
 
         periode = datetime.date.today().strftime("%Y-%m")
@@ -280,82 +286,46 @@ def update_employee(id):
 
         if summary:
 
-            # Update gaji pokok
-            summary.basic_salary = new_basic_salary
-
-            # Hitung ulang komponen payroll
-            total_tunjangan = sum(
-                item.amount or 0
-                for item in summary.items
-                if item.type == "tunjangan"
+            # Hapus semua item payroll lama
+            PayrollItem.query.filter_by(
+                payroll_summary_id=summary.id
+            ).delete(
+                synchronize_session=False
             )
 
-            total_bonus = sum(
-                item.amount or 0
-                for item in summary.items
-                if item.type == "bonus"
-            )
+            # Hapus summary lama
+            db.session.delete(summary)
 
-            total_potongan = sum(
-                item.amount or 0
-                for item in summary.items
-                if item.type == "potongan"
-            )
+            db.session.flush()
 
-            # Total earning
-            summary.total_earning = (
-                new_basic_salary
-                + total_tunjangan
-                + total_bonus
-            )
 
-            # Total deduction
-            summary.total_deduction = (
-                total_potongan
-            )
+        # ======================================================
+        # BUAT PAYROLL BARU
+        # ======================================================
 
-            # Take home pay
-            summary.thp = (
-                summary.total_earning
-                - summary.total_deduction
-            )
+        summary = PayrollSummary(
+            employee_id=employee.id,
+            periode=periode,
+            basic_salary=new_basic_salary,
+            total_earning=new_basic_salary,
+            total_deduction=0,
+            thp=new_basic_salary,
+            status_wa="Pending"
+        )
 
-            summary.pph21 = pph_21(
-                summary.thp,
-                employee.gender,
-                employee.married_status,
-                employee.dependents
-            )
+        summary.pph21 = pph_21(
+            summary.thp,
+            employee.gender,
+            employee.married_status,
+            employee.dependents
+        )
 
-            summary.thp_after_tax = (
-                summary.thp - summary.pph21
-            )
+        summary.thp_after_tax = (
+            summary.thp - summary.pph21
+        )
 
-        else:
-            # Jika summary periode berjalan belum ada,
-            # buat summary baru.
-            summary = PayrollSummary(
-                employee_id=employee.id,
-                periode=periode,
-                basic_salary=new_basic_salary,
-                total_earning=new_basic_salary,
-                total_deduction=0,
-                thp=new_basic_salary,
-                status_wa="Pending"
-            )
+        db.session.add(summary)
 
-            summary.pph21 = pph_21(
-                summary.thp,
-                employee.gender,
-                employee.married_status,
-                employee.dependents
-            )
-
-            summary.thp_after_tax = (
-                summary.thp - summary.pph21
-            )
-
-            db.session.add(summary)
 
         # ======================================================
         # SIMPAN
@@ -364,8 +334,9 @@ def update_employee(id):
         db.session.commit()
 
         return jsonify({
-            "message": "Data karyawan berhasil diupdate."
+            "message": "Data karyawan berhasil diupdate dan payroll direset."
         }), 200
+
 
     except IntegrityError:
 
@@ -374,6 +345,7 @@ def update_employee(id):
         return jsonify({
             "message": "Terjadi error integritas data."
         }), 409
+
 
     except Exception as e:
 
@@ -385,6 +357,7 @@ def update_employee(id):
 
 
 @employee_bp.route("/<int:id>", methods=["DELETE"])
+@login_required
 def delete_employee(id):
     employee = Employee.query.get_or_404(id)
 

@@ -1,0 +1,16 @@
+<!-- MODAL KONFIRMASI LOGOUT -->
+<div class="modal-overlay" id="confirmLogoutModal">
+    <div class="modal" style="max-width: 420px;">
+        <div class="modal-header">
+            <div class="modal-title">Konfirmasi Logout</div>
+            <button class="modal-close" onclick="closeLogoutConfirmModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin: 0 0 12px;">Apakah Anda yakin ingin keluar?</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeLogoutConfirmModal()">Batal</button>
+            <button class="btn btn-danger" style="font-size: 12px; background-color: #fd7d7d; border: none; font-weight: 500;" onclick="window.location.href='/logout'">Keluar</button>
+        </div>
+    </div>
+</div>
