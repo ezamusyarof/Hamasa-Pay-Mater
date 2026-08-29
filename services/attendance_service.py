@@ -3,6 +3,7 @@ import datetime
 from models import DailyAttendance, Employee, LogAbsensi
 from flask import current_app
 from extensions import db
+# from firebase_config import firestore_db
 
 def is_holiday_date(check_date):
     """
@@ -429,6 +430,123 @@ def process_attendance_recap_incremental(periode=None):
         "manual_skipped": manual_skipped_count
     }
 
+# def sync_visit_report(periode):
+
+#     try:
+
+#         # ==================================================
+#         # PERIODE
+#         # ==================================================
+
+#         year, month = map(
+#             int,
+#             periode.split("-")
+#         )
+
+#         start_date = datetime.datetime(
+#             year,
+#             month,
+#             1
+#         )
+
+#         if month == 12:
+
+#             end_date = datetime.datetime(
+#                 year + 1,
+#                 1,
+#                 1
+#             )
+
+#         else:
+
+#             end_date = datetime.datetime(
+#                 year,
+#                 month + 1,
+#                 1
+#             )
+
+
+#         # ==================================================
+#         # FIREBASE REPORTS
+#         # ==================================================
+
+#         reports = (
+#             firestore_db
+#             .collection("reports")
+#             .where(
+#                 "timestamp",
+#                 ">=",
+#                 start_date
+#             )
+#             .where(
+#                 "timestamp",
+#                 "<",
+#                 end_date
+#             )
+#             .stream()
+#         )
+
+
+#         # ==================================================
+#         # TAMPILKAN DATA
+#         # ==================================================
+
+#         data_list = []
+
+#         for report in reports:
+
+#             data = report.to_dict()
+
+#             data_list.append({
+#                 "id": report.id,
+#                 **data
+#             })
+
+
+#         print(
+#             "\n========================================"
+#         )
+
+#         print(
+#             f" FIREBASE REPORTS - {periode}"
+#         )
+
+#         print(
+#             "========================================"
+#         )
+
+#         print(
+#             f"Jumlah data: {len(data_list)}"
+#         )
+
+#         for index, data in enumerate(
+#             data_list,
+#             start=1
+#         ):
+
+#             print(
+#                 f"\n[{index}]"
+#             )
+
+#             print(data)
+
+
+#         print(
+#             "\n========================================\n"
+#         )
+
+
+#         return data_list
+
+
+#     except Exception as e:
+
+#         print(
+#             f"❌ Gagal mengambil data Firebase: {e}"
+#         )
+
+#         return []
+    
 def calculate_attendance_summary(user_id, periode):
     attendances = DailyAttendance.query.filter(
         DailyAttendance.user_id == str(user_id),

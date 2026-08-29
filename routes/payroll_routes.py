@@ -1,10 +1,18 @@
 import datetime
 import math
+import base64
 from sqlite3 import IntegrityError
 from flask import Blueprint, jsonify, request
 from models import DailyAttendance, Employee, PayrollItem, PayrollSummary
 from services.payroll_service import save_monthly_payroll, pph_21
 from extensions import db
+from io import BytesIO
+
+from flask import send_file
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 payroll_bp = Blueprint(
     "payroll",
@@ -717,3 +725,380 @@ def get_payroll_slip(employee_id):
     return jsonify(
         employees_json=employees_data,
     )
+
+@payroll_bp.route("/payroll/slip/all")
+def download_all_payroll():
+
+    periode = request.args.get("periode")
+
+    if not periode:
+        return jsonify({
+            "error": "Parameter periode wajib diisi."
+        }), 400
+
+    # ==========================================================
+    # 1. AMBIL DATA PAYROLL
+    # ==========================================================
+
+    summaries = PayrollSummary.query.filter_by(
+        periode=periode
+    ).all()
+
+    if not summaries:
+        return jsonify({
+            "error": f"Tidak ada data payroll untuk periode {periode}."
+        }), 404
+
+    # ==========================================================
+    # 2. SIAPKAN DATA EMPLOYEE
+    # ==========================================================
+
+    employees_data = []
+
+    for s in summaries:
+
+        emp = s.employee
+
+        if not emp:
+            continue
+
+        employees_data.append({
+            "name": emp.name or "-",
+            "position": emp.position or "-",
+            "basic_salary": s.basic_salary or 0,
+            "thp_after_tax": s.thp_after_tax or 0
+        })
+
+    # ==========================================================
+    # 3. SORT EMPLOYEE
+    # ==========================================================
+
+    employees_data.sort(
+        key=lambda x: (
+            (x["name"] or "-").lower()
+        )
+    )
+
+    # ==========================================================
+    # 4. BUAT WORKBOOK
+    # ==========================================================
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Payroll"
+
+    # ==========================================================
+    # 5. STYLE
+    # ==========================================================
+
+    title_fill = PatternFill(
+        fill_type="solid",
+        fgColor="1F4E78"
+    )
+
+    header_fill = PatternFill(
+        fill_type="solid",
+        fgColor="5B9BD5"
+    )
+
+    total_fill = PatternFill(
+        fill_type="solid",
+        fgColor="E2F0D9"
+    )
+
+    title_font = Font(
+        color="FFFFFF",
+        bold=True,
+        size=16
+    )
+
+    header_font = Font(
+        color="FFFFFF",
+        bold=True
+    )
+
+    bold_font = Font(
+        bold=True
+    )
+
+    thin_side = Side(
+        style="thin",
+        color="D9E1F2"
+    )
+
+    border = Border(
+        left=thin_side,
+        right=thin_side,
+        top=thin_side,
+        bottom=thin_side
+    )
+
+    center = Alignment(
+        horizontal="center",
+        vertical="center"
+    )
+
+    left = Alignment(
+        horizontal="left",
+        vertical="center"
+    )
+
+    # ==========================================================
+    # 6. JUDUL
+    # ==========================================================
+
+    ws.merge_cells("A1:E1")
+
+    ws["A1"] = "LAPORAN PAYROLL KARYAWAN"
+
+    ws["A1"].fill = title_fill
+    ws["A1"].font = title_font
+    ws["A1"].alignment = center
+
+    ws.row_dimensions[1].height = 32
+
+    # ==========================================================
+    # 7. PERIODE
+    # ==========================================================
+
+    ws.merge_cells("A2:E2")
+
+    ws["A2"] = f"Periode Payroll: {periode}"
+
+    ws["A2"].font = Font(
+        bold=True,
+        size=11
+    )
+
+    ws["A2"].alignment = center
+
+    # ==========================================================
+    # 8. HEADER
+    # ==========================================================
+
+    headers = [
+        "No",
+        "Nama",
+        "Jabatan",
+        "Gaji Pokok",
+        "THP Diterima"
+    ]
+
+    header_row = 4
+
+    for col, header in enumerate(
+        headers,
+        start=1
+    ):
+
+        cell = ws.cell(
+            row=header_row,
+            column=col,
+            value=header
+        )
+
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center
+        cell.border = border
+
+    ws.row_dimensions[header_row].height = 28
+
+    # ==========================================================
+    # 9. DATA
+    # ==========================================================
+
+    start_data_row = 5
+
+    for row_index, emp in enumerate(
+        employees_data,
+        start=start_data_row
+    ):
+
+        values = [
+            row_index - start_data_row + 1,
+            emp["name"],
+            emp["position"],
+            emp["basic_salary"],
+            emp["thp_after_tax"]
+        ]
+
+        for col, value in enumerate(
+            values,
+            start=1
+        ):
+
+            cell = ws.cell(
+                row=row_index,
+                column=col,
+                value=value
+            )
+
+            cell.border = border
+
+            if col in [1, 4, 5]:
+                cell.alignment = center
+            else:
+                cell.alignment = left
+
+    # ==========================================================
+    # 10. FORMAT RUPIAH
+    # ==========================================================
+
+    currency_format = '#,##0'
+
+    for row in range(
+        start_data_row,
+        ws.max_row + 1
+    ):
+
+        ws.cell(
+            row=row,
+            column=4
+        ).number_format = currency_format
+
+        ws.cell(
+            row=row,
+            column=5
+        ).number_format = currency_format
+
+    # ==========================================================
+    # 11. TOTAL
+    # ==========================================================
+
+    total_row = ws.max_row + 1
+
+    # Merge A:C
+    ws.merge_cells(
+        start_row=total_row,
+        start_column=1,
+        end_row=total_row,
+        end_column=3
+    )
+
+    total_label = ws.cell(
+        row=total_row,
+        column=1,
+        value="TOTAL"
+    )
+
+    total_label.fill = total_fill
+    total_label.font = bold_font
+    total_label.alignment = center
+    total_label.border = border
+
+    # Total Gaji Pokok
+    total_basic_salary = sum(
+        emp["basic_salary"]
+        for emp in employees_data
+    )
+
+    # Total THP Diterima
+    total_thp = sum(
+        emp["thp_after_tax"]
+        for emp in employees_data
+    )
+
+    basic_cell = ws.cell(
+        row=total_row,
+        column=4,
+        value=total_basic_salary
+    )
+
+    basic_cell.fill = total_fill
+    basic_cell.font = bold_font
+    basic_cell.alignment = center
+    basic_cell.border = border
+    basic_cell.number_format = currency_format
+
+    thp_cell = ws.cell(
+        row=total_row,
+        column=5,
+        value=total_thp
+    )
+
+    thp_cell.fill = total_fill
+    thp_cell.font = bold_font
+    thp_cell.alignment = center
+    thp_cell.border = border
+    thp_cell.number_format = currency_format
+
+    # ==========================================================
+    # 12. BORDER TOTAL
+    # ==========================================================
+
+    for col in range(1, 6):
+
+        cell = ws.cell(
+            row=total_row,
+            column=col
+        )
+
+        cell.border = border
+
+        if col <= 3:
+            cell.fill = total_fill
+
+    # ==========================================================
+    # 13. FILTER
+    # ==========================================================
+
+    ws.auto_filter.ref = (
+        f"A{header_row}:E{total_row - 1}"
+    )
+
+    # ==========================================================
+    # 14. FREEZE HEADER
+    # ==========================================================
+
+    ws.freeze_panes = "A5"
+
+    # ==========================================================
+    # 15. COLUMN WIDTH
+    # ==========================================================
+
+    ws.column_dimensions["A"].width = 7
+    ws.column_dimensions["B"].width = 30
+    ws.column_dimensions["C"].width = 25
+    ws.column_dimensions["D"].width = 20
+    ws.column_dimensions["E"].width = 22
+
+    # ==========================================================
+    # 16. TAMPILAN
+    # ==========================================================
+
+    ws.sheet_view.showGridLines = False
+
+    # ==========================================================
+    # 17. PRINT SETTING
+    # ==========================================================
+
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+    ws.print_title_rows = "1:4"
+
+    # ==========================================================
+    # 18. DOWNLOAD
+    # ==========================================================
+
+    output = BytesIO()
+
+    wb.save(output)
+
+    output.seek(0)
+
+    filename = f"Payroll_{periode}.xlsx"
+
+    file_data = base64.b64encode(
+        output.read()
+    ).decode("utf-8")
+
+    return jsonify({
+        "success": True,
+        "filename": filename,
+        "data": file_data
+    })

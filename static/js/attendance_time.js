@@ -409,3 +409,344 @@ function toggleQtyInput() {
         lblNilaiDasar.innerText = "Nilai Dasar (Rp)";
     }
 }
+
+// ==========================================================
+// DOWNLOAD WAKTU KEHADIRAN PDF
+// ==========================================================
+
+async function downloadAttendancePDF(periode) {
+
+    const original =
+        document.getElementById("tab-detail-kehadiran");
+
+    if (!original) {
+
+        alert(
+            "Section waktu kehadiran tidak ditemukan."
+        );
+
+        return;
+    }
+
+    let clone = null;
+
+    try {
+
+        // ==================================================
+        // CLONE SECTION
+        // ==================================================
+
+        clone = original.cloneNode(true);
+
+        // ==================================================
+        // HILANGKAN TOMBOL AKSI
+        // ==================================================
+
+        const actionButtons =
+            clone.querySelector(".action-buttons");
+
+        if (actionButtons) {
+            actionButtons.remove();
+        }
+
+        // ==================================================
+        // HILANGKAN TAB MENU
+        // ==================================================
+
+        const tabMenu =
+            clone.querySelector(".tab-menu");
+
+        if (tabMenu) {
+            tabMenu.remove();
+        }
+
+        // ==================================================
+        // SIAPKAN CLONE
+        // ==================================================
+
+        clone.style.position = "absolute";
+        clone.style.left = "-99999px";
+        clone.style.top = "0";
+
+        clone.style.width = "max-content";
+        clone.style.maxWidth = "none";
+
+        clone.style.height = "auto";
+        clone.style.maxHeight = "none";
+
+        clone.style.overflow = "visible";
+
+        clone.style.backgroundColor =
+            "#ffffff";
+
+        document.body.appendChild(clone);
+
+        // ==================================================
+        // PERBAIKI TABLE RESPONSIVE
+        // ==================================================
+
+        const tableResponsive =
+            clone.querySelector(".table-responsive");
+
+        if (tableResponsive) {
+
+            tableResponsive.style.overflow =
+                "visible";
+
+            tableResponsive.style.overflowX =
+                "visible";
+
+            tableResponsive.style.overflowY =
+                "visible";
+
+            tableResponsive.style.width =
+                "max-content";
+
+            tableResponsive.style.maxWidth =
+                "none";
+
+            tableResponsive.style.height =
+                "auto";
+
+            tableResponsive.style.maxHeight =
+                "none";
+        }
+
+        // ==================================================
+        // PERBAIKI TABLE
+        // ==================================================
+
+        const table =
+            clone.querySelector("#attendanceTable");
+
+        if (!table) {
+
+            throw new Error(
+                "Tabel attendanceTable tidak ditemukan."
+            );
+        }
+
+        table.style.width =
+            "max-content";
+
+        table.style.minWidth =
+            "max-content";
+
+        table.style.maxWidth =
+            "none";
+
+        // ==================================================
+        // TUNGGU RENDER
+        // ==================================================
+
+        await new Promise(
+            resolve => setTimeout(resolve, 150)
+        );
+
+        // ==================================================
+        // AMBIL UKURAN TABEL SEBENARNYA
+        // ==================================================
+
+        const tableWidth =
+            table.scrollWidth;
+
+        const tableHeight =
+            table.scrollHeight;
+
+        // ==================================================
+        // PAKSA CONTAINER MENGIKUTI TABEL
+        // ==================================================
+
+        if (tableResponsive) {
+
+            tableResponsive.style.width =
+                `${tableWidth}px`;
+        }
+
+        clone.style.width =
+            `${tableWidth}px`;
+
+        // ==================================================
+        // HTML → CANVAS
+        // ==================================================
+
+        const canvas =
+            await html2canvas(clone, {
+
+                scale: 2,
+
+                useCORS: true,
+
+                backgroundColor: "#ffffff",
+
+                width: tableWidth,
+
+                height: clone.scrollHeight,
+
+                windowWidth: tableWidth,
+
+                windowHeight: clone.scrollHeight,
+
+                scrollX: 0,
+
+                scrollY: 0
+            });
+
+        // ==================================================
+        // CANVAS → PNG
+        // ==================================================
+
+        const imgData =
+            canvas.toDataURL("image/png");
+
+        // ==================================================
+        // JS PDF
+        // ==================================================
+
+        const { jsPDF } =
+            window.jspdf;
+
+        if (!jsPDF) {
+
+            throw new Error(
+                "jsPDF tidak tersedia."
+            );
+        }
+
+        // ==================================================
+        // PDF LANDSCAPE
+        // ==================================================
+
+        const pdf =
+            new jsPDF({
+
+                orientation: "landscape",
+
+                unit: "mm",
+
+                format: "a4"
+            });
+
+        // ==================================================
+        // UKURAN A4 LANDSCAPE
+        // ==================================================
+
+        const pageWidth = 297;
+        const pageHeight = 210;
+
+        const margin = 10;
+
+        const availableWidth =
+            pageWidth - margin * 2;
+
+        const availableHeight =
+            pageHeight - margin * 2;
+
+        // ==================================================
+        // RASIO GAMBAR
+        // ==================================================
+
+        const imgWidth =
+            canvas.width;
+
+        const imgHeight =
+            canvas.height;
+
+        const ratio =
+            Math.min(
+                availableWidth / imgWidth,
+                availableHeight / imgHeight
+            );
+
+        const finalWidth =
+            imgWidth * ratio;
+
+        const finalHeight =
+            imgHeight * ratio;
+
+        // ==================================================
+        // POSISI
+        // ==================================================
+
+        const x =
+            (pageWidth - finalWidth) / 2;
+
+        const y =
+            (pageHeight - finalHeight) / 2;
+
+        // ==================================================
+        // MASUKKAN GAMBAR
+        // ==================================================
+
+        pdf.addImage(
+            imgData,
+            "PNG",
+            x,
+            y,
+            finalWidth,
+            finalHeight
+        );
+
+        // ==================================================
+        // PDF → BASE64
+        // ==================================================
+
+        const pdfData =
+            pdf.output("datauristring");
+
+        // ==================================================
+        // NAMA FILE
+        // ==================================================
+
+        const filename =
+            `Waktu Kehadiran ${periode}.pdf`;
+
+        // ==================================================
+        // SIMPAN VIA PYWEBVIEW
+        // ==================================================
+
+        const result =
+            await window.pywebview.api.save_file(
+                pdfData,
+                filename,
+                "pdf"
+            );
+
+        // ==================================================
+        // HASIL
+        // ==================================================
+
+        if (result?.success) {
+
+            console.log(
+                "PDF waktu kehadiran berhasil disimpan:",
+                result.path
+            );
+
+        } else if (!result?.cancelled) {
+
+            alert(
+                "Gagal menyimpan PDF.\n\n" +
+                (result?.message || "")
+            );
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Gagal membuat PDF kehadiran:",
+            error
+        );
+
+        alert(
+            "Gagal membuat PDF kehadiran.\n\n" +
+            error.message
+        );
+
+    } finally {
+
+        if (clone) {
+            clone.remove();
+        }
+    }
+}

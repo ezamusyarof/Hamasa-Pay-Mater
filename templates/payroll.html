@@ -79,6 +79,7 @@
                         <div>
                             <button class="btn btn-secondary" onclick="openConfirmDeletePayrollModal()"><i class="fa-solid fa-trash"></i> Hapus Payroll Bulan Ini</button>
                             <button class="btn btn-primary" onclick="createAllPayrollByMonth()"><i class="fa-solid fa-book"></i> Buka Payroll Bulan Ini</button>
+                            <button class="btn" onclick="downloadPayrollByMonth('{{periode}}')" style="background-color:#ffc107;"><i class="fa-solid fa-download"></i> Download Payroll</button>
                         </div>
                     </div>
                     <div class="table-responsive">
@@ -254,8 +255,8 @@
                                             </button>
                                             <button class="btn btn-primary" 
                                                     style="padding: 8px 12px; font-size: 12px; border-radius: 6px; border: none; color:#fff;" 
-                                                    onclick="sendSingleWhatsapp('${emp.id}')">
-                                                <i class="fa-brands fa-whatsapp"></i> Whatsapp
+                                                    onclick="openWhatsApp('${{emp.phone}}')">
+                                                <i class="fa-brands fa-whatsapp"></i>
                                             </button>
                                         </div>
                                     </td>

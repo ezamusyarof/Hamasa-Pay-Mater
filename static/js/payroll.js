@@ -305,30 +305,6 @@ function sendAllWhatsapp() {
     renderPayrollTable();
 }
 
-function downloadPDF() {
-    const element = document.getElementById('payslip-render-area');
-    if (!element) return;
-    const opt = {
-        margin: 10,
-        filename: `Slip_Gaji_${activeSlipEmpId || 'Karyawan'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    html2pdf().set(opt).from(element).save();
-}
-
-function downloadPNG() {
-    const element = document.getElementById('payslip-render-area');
-    if (!element) return;
-    html2canvas(element, { scale: 2 }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = `Slip_Gaji_${activeSlipEmpId || 'Karyawan'}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    });
-}
-
 function openEmpModal(id = null) {
     document.getElementById('empForm').reset();
     editingEmployeeId = id || null;
@@ -464,6 +440,104 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+async function downloadPayrollByMonth(periode) {
+
+    try {
+
+        // ==================================================
+        // AMBIL FILE EXCEL DARI FLASK
+        // ==================================================
+
+        const response = await fetch(
+            `/api/payroll/slip/all?periode=${encodeURIComponent(periode)}`
+        );
+
+        if (!response.ok) {
+
+            let message =
+                "Gagal mengambil data payroll.";
+
+            try {
+
+                const errorData =
+                    await response.json();
+
+                if (errorData.error) {
+                    message = errorData.error;
+                }
+
+            } catch (e) {}
+
+            throw new Error(message);
+        }
+
+        // ==================================================
+        // PARSE RESPONSE
+        // ==================================================
+
+        const result =
+            await response.json();
+
+        if (!result.success) {
+
+            throw new Error(
+                result.error ||
+                "Gagal membuat file payroll."
+            );
+        }
+
+        // ==================================================
+        // NAMA FILE
+        // ==================================================
+
+        const filename =
+            result.filename ||
+            `Payroll_${periode}.xlsx`;
+
+        // ==================================================
+        // SIMPAN MELALUI PYWEBVIEW
+        // ==================================================
+
+        const saveResult =
+            await window.pywebview.api.save_file(
+                result.data,
+                filename,
+                "xlsx"
+            );
+
+        // ==================================================
+        // HASIL
+        // ==================================================
+
+        if (saveResult?.success) {
+
+            console.log(
+                "Payroll berhasil disimpan:",
+                saveResult.path
+            );
+
+        } else if (!saveResult?.cancelled) {
+
+            alert(
+                "Gagal menyimpan Payroll.\n\n" +
+                (saveResult?.message || "")
+            );
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Gagal download payroll:",
+            error
+        );
+
+        alert(
+            "Gagal mengunduh Payroll.\n\n" +
+            error.message
+        );
+    }
 }
 
 async function openSlipModal(employeeId) {
@@ -1082,9 +1156,11 @@ function createSlipExportClone() {
 }
 
 // Membuat slip gaji PNG
-async function downloadSlipPNG(name,month) {
+async function downloadSlipPNG(name, month) {
     const clone = createSlipExportClone();
-    if (!clone) { return; }
+    if (!clone) {
+        return;
+    }
     try {
         await new Promise(resolve => setTimeout(resolve, 100));
         const canvas = await html2canvas(clone, {
@@ -1095,24 +1171,69 @@ async function downloadSlipPNG(name,month) {
             height: clone.scrollHeight,
             windowWidth: clone.scrollWidth,
             windowHeight: clone.scrollHeight
+
         });
-        const link = document.createElement("a");
-        link.download = "Slip Gaji "+month+" - "+name+".png";
-        link.href = canvas.toDataURL("image/png");
-        link.click();
+        // ==================================================
+        // PNG → Base64
+        // ==================================================
+        const dataURL = canvas.toDataURL(
+            "image/png"
+        );
+        const filename =
+            `Slip Gaji ${month} - ${name}.png`;
+
+        // ==================================================
+        // KIRIM KE PYTHON
+        // ==================================================
+
+        const result =
+            await window.pywebview.api.save_file(
+                dataURL,
+                filename,
+                "png"
+            );
+
+        // ==================================================
+        // HASIL
+        // ==================================================
+
+        if (result?.success) {
+            console.log(
+                "PNG berhasil disimpan:",
+                result.path
+            );
+        } else if (!result?.cancelled) {
+            alert(
+                "Gagal menyimpan PNG.\n\n" +
+                (result?.message || "")
+            );
+        }
+
     } catch (error) {
-        console.error("Gagal membuat PNG:", error);
+        console.error(
+            "Gagal membuat PNG:",
+            error
+        );
+        alert(
+            "Gagal membuat slip PNG.\n\n" +
+            error.message
+        );
     } finally {
         clone.remove();
     }
 }
 
 // Membuat slip gaji PDF
-async function downloadSlipPDF(name,month) {
+async function downloadSlipPDF(name, month) {
     const clone = createSlipExportClone();
-    if (!clone) { return; }
+    if (!clone) {
+        return;
+    }
     try {
         await new Promise(resolve => setTimeout(resolve, 100));
+        // ==================================================
+        // HTML → CANVAS
+        // ==================================================
         const canvas = await html2canvas(clone, {
             scale: 2,
             useCORS: true,
@@ -1121,33 +1242,123 @@ async function downloadSlipPDF(name,month) {
             height: clone.scrollHeight,
             windowWidth: clone.scrollWidth,
             windowHeight: clone.scrollHeight
+
         });
-        const imgData = canvas.toDataURL("image/png");
+        // ==================================================
+        // CANVAS → PNG
+        // ==================================================
+        const imgData =
+            canvas.toDataURL("image/png");
+        // ==================================================
+        // JS PDF
+        // ==================================================
         const { jsPDF } = window.jspdf;
+        if (!jsPDF) {
+            throw new Error(
+                "jsPDF tidak tersedia."
+            );
+        }
         const pdf = new jsPDF({
             orientation: "portrait",
             unit: "mm",
             format: "a4"
         });
+
+        // ==================================================
+        // UKURAN A4
+        // ==================================================
+
         const pageWidth = 210;
         const pageHeight = 297;
         const margin = 10;
-        const availableWidth = pageWidth - margin * 2;
-        const availableHeight = pageHeight - margin * 2;
+        const availableWidth =
+            pageWidth - margin * 2;
+        const availableHeight =
+            pageHeight - margin * 2;
+
+        // ==================================================
+        // RASIO GAMBAR
+        // ==================================================
+
         const imgWidth = canvas.width;
         const imgHeight = canvas.height;
         const ratio = Math.min(
             availableWidth / imgWidth,
             availableHeight / imgHeight
         );
-        const finalWidth = imgWidth * ratio;
-        const finalHeight = imgHeight * ratio;
-        const x = (pageWidth - finalWidth) / 2;
-        const y = margin;
-        pdf.addImage( imgData, "PNG", x, y, finalWidth, finalHeight );
-        pdf.save("Slip Gaji "+month+" - "+name+".pdf");
+        const finalWidth =
+            imgWidth * ratio;
+        const finalHeight =
+            imgHeight * ratio;
+        // ==================================================
+        // POSISI
+        // ==================================================
+        const x =
+            (pageWidth - finalWidth) / 2;
+        const y =
+            (pageHeight - finalHeight) / 2;
+        // ==================================================
+        // MASUKKAN GAMBAR
+        // ==================================================
+        pdf.addImage(
+            imgData,
+            "PNG",
+            x,
+            y,
+            finalWidth,
+            finalHeight
+        );
+
+        // ==================================================
+        // PDF → BASE64
+        // ==================================================
+
+        const pdfData =
+            pdf.output("datauristring");
+
+        // ==================================================
+        // NAMA FILE
+        // ==================================================
+
+        const filename =
+            `Slip Gaji ${month} - ${name}.pdf`;
+
+        // ==================================================
+        // KIRIM KE PYTHON
+        // ==================================================
+
+        const result =
+            await window.pywebview.api.save_file(
+                pdfData,
+                filename,
+                "pdf"
+            );
+
+        // ==================================================
+        // HASIL
+        // ==================================================
+
+        if (result?.success) {
+            console.log(
+                "PDF berhasil disimpan:",
+                result.path
+            );
+        } else if (!result?.cancelled) {
+            alert(
+                "Gagal menyimpan PDF.\n\n" +
+                (result?.message || "")
+            );
+        }
+
     } catch (error) {
-        console.error("Gagal membuat PDF:", error);
+        console.error(
+            "Gagal membuat PDF:",
+            error
+        );
+        alert(
+            "Gagal membuat slip PDF.\n\n" +
+            error.message
+        );
     } finally {
         clone.remove();
     }
@@ -1204,4 +1415,23 @@ async function confirmDeletePayroll() {
         console.error(error);
         showToastFailed(error.message);
     }
+}
+
+function openWhatsApp(phoneNumber) {
+    if (!phoneNumber) {
+        alert("Nomor WhatsApp tidak tersedia.");
+        return;
+    }
+
+    // Bersihkan nomor
+    let number = String(phoneNumber)
+        .replace(/\D/g, "");
+
+    // Jika nomor Indonesia diawali 0 → ubah menjadi 62
+    if (number.startsWith("0")) {
+        number = "62" + number.substring(1);
+    }
+
+    // Buka WhatsApp Desktop
+    window.location.href = `whatsapp://send?phone=${number}`;
 }

@@ -918,6 +918,7 @@ def payroll_page():
             "id": str(emp.id),
             "user_id": emp_user_id,
             "name": emp.name or "-",
+            "phone": emp.phone or "",
             "position": emp.position or "-",
             "basic_salary": s.basic_salary,
             "thp": s.thp,

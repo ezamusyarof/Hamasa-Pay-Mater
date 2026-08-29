@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request, current_app
 from zk import ZK
 from models import DailyAttendance, Employee, LogAbsensi, PayrollSummary
 from routes.user_routes import login_required
-from services.attendance_service import calculate_status_from_time, is_holiday_date, process_attendance_recap_incremental
+from services.attendance_service import calculate_status_from_time, is_holiday_date, process_attendance_recap_incremental #, sync_visit_report
 from extensions import db
 
 attendance_bp = Blueprint(
@@ -544,7 +544,7 @@ def save_attendance_time():
         return jsonify({
             "message": f"Gagal menyimpan: {str(e)}"
         }), 500
-    
+
 def update_payroll_summary(employee, periode):
     summary = PayrollSummary.query.filter_by(
         employee_id=employee.id,
@@ -649,6 +649,7 @@ def sync_fingerprint():
     try:
         periode = request.args.get("periode", datetime.date.today().strftime("%Y-%m"))
         process_attendance_recap_incremental(periode)
+        # sync_visit_report(periode)
         update_payroll_summary(employee=Employee, periode=periode)
     except Exception as e:
         print(f"❌ Error saat kalkulasi daily_attendance: {e}")
