@@ -808,11 +808,12 @@ def download_all_payroll():
         if not emp:
             continue
 
+        name = emp.pemilik_bank or "-"
         account_number = emp.no_rekening or "-"
         bank_name = emp.nama_bank or "-"
 
         employees_data.append({
-            "name": emp.name or "-",
+            "name": name or emp.name or "-",
             "account_number": account_number,
             "bank_name": bank_name,
             "currency": "IDR",
@@ -1093,7 +1094,7 @@ def download_all_payroll():
             cell.border = border
             cell.font = Font(size=12)
 
-            if col in [1, 5]:
+            if col in [1, 3, 4, 5]:
                 cell.alignment = center
 
             elif col == 6:
