@@ -239,6 +239,15 @@ async function openEmpModal(id = null) {
             document.getElementById('emp-gapok').value =
                 String(emp.basic_salary) || 0;
 
+            document.getElementById('emp-no-rekening').value =
+                emp.no_rekening || '';
+
+            document.getElementById('emp-nama-bank').value =
+                emp.nama_bank || '';
+
+            document.getElementById('emp-pemilik-bank').value =
+                emp.pemilik_bank || '';
+
             document.getElementById('emp-jenis-kelamin').value =
                 emp.gender || 0;
 
@@ -282,6 +291,9 @@ async function saveEmployee() {
         position: document.getElementById("emp-jabatan").value,
         phone: document.getElementById("emp-wa").value,
         basic_salary: parseFloat(document.getElementById('emp-gapok').value.replace(/\./g, '')),
+        no_rekening: document.getElementById("emp-no-rekening").value,
+        nama_bank: document.getElementById("emp-nama-bank").value,
+        pemilik_bank: document.getElementById("emp-pemilik-bank").value,
         married_status: document.getElementById('emp-status-perkawinan').value,
         gender: document.getElementById('emp-jenis-kelamin').value,
         dependents: document.getElementById('emp-jumlah-tanggungan').value,
@@ -300,7 +312,7 @@ async function saveEmployee() {
         if (!response.ok) {
             const errorResult = await response.json().catch(() => ({}));
             showToastFailed(errorResult.message || "Gagal menyimpan data.");
-            return;
+            window.location.href = '/employees';
         }
 
         const result = await response.json();

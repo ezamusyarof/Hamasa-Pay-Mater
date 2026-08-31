@@ -79,13 +79,10 @@ def get_employees():
             "married_status": getattr(emp, "married_status", "") or "",
             "dependents": getattr(emp, "dependents", "") or "",
             "basic_salary": getattr(emp, "basic_salary", "") or "",
-            # "basic_salary": getattr(
-            #     calc_result,
-            #     "basic_salary",
-            #     getattr(emp, "basic_salary", 0)
-            # ),
+            "no_rekening": emp.no_rekening or "-",
+            "nama_bank": emp.nama_bank or "-",
+            "pemilik_bank": emp.pemilik_bank or "-",
             "thp": getattr(calc_result, "thp", 0),
-
             "tunjanganList": tunjangan_list,
             "bonusList": bonus_list,
             "potonganList": potongan_list,
@@ -132,6 +129,9 @@ def add_employee():
         phone=data.get("phone"),
         email=data.get("email"),
         basic_salary=basic_salary,
+        no_rekening=data.get("no_rekening"),
+        nama_bank=data.get("nama_bank"),
+        pemilik_bank=data.get("pemilik_bank"),
     )
 
     db.session.add(new_employee)
@@ -181,7 +181,7 @@ def add_employee():
         db.session.rollback()
 
         return jsonify({
-            "message": f"Karyawan berhasil dibuat, tetapi rekap absensi gagal: {str(e)}"
+            "message": f"Karyawan berhasil dibuat, tetapi rekap absensi gagal."
         }), 500
 
     return jsonify({
@@ -238,6 +238,21 @@ def update_employee(id):
         employee.position = data.get(
             "position",
             employee.position
+        )
+
+        employee.no_rekening = data.get(
+            "no_rekening",
+            employee.no_rekening
+        )
+
+        employee.nama_bank = data.get(
+            "nama_bank",
+            employee.nama_bank
+        )
+
+        employee.pemilik_bank = data.get(
+            "pemilik_bank",
+            employee.pemilik_bank
         )
 
         employee.phone = data.get(

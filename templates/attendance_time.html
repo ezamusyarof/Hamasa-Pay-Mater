@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- html2canvas for PNG export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/attendance_styles.css') }}">
@@ -59,13 +60,30 @@
                         id="selectPeriode" 
                         class="month-input" 
                         value="{{periode_raw}}"
-                        onchange="loadPageData('attendance/detail',this.value)">
+                        onchange="loadPageData('attendance/time',this.value)">
+                </div>
+                <div class="attendance-import-container">
+                    <input
+                        type="file"
+                        id="attendanceExcelInput"
+                        accept=".xlsx,.xls"
+                        hidden
+                    >
+                    <button
+                        type="button"
+                        id="btnImportAttendance"
+                        class="btn btn-primary"
+                        onclick="document.getElementById('attendanceExcelInput').click()"
+                    >
+                        <i class="fa-solid fa-file-excel"></i>
+                        Import Excel
+                    </button>
                 </div>
 
-                <button class="btn btn-primary" id="btnUpdateAttendance" onclick="updateAttendance()">
+                <!-- <button class="btn btn-primary" id="btnUpdateAttendance" onclick="updateAttendance()">
                     <i class="fa-solid fa-rotate"></i>
                     Update Data Kehadiran
-                </button>
+                </button> -->
             </div>
         </header>
 
@@ -94,7 +112,13 @@
                                         <i class="fa-solid fa-xmark"></i> Batal
                                     </button>
                                     
-                                    <button id="btnDownloadAttendancePDF" class="btn btn-outline-danger" onclick="downloadAttendancePDF('{{ periode_raw }}')"
+                                    <button id="btnDownloadAttendanceExcel" class="btn btn-primary btn-outline-primary" onclick="downloadAttendanceExcel('{{ periode_raw }}')"
+                                    >
+                                        <i class="fa-solid fa-file-excel"></i>
+                                        Download Excel
+                                    </button>
+                                    
+                                    <button id="btnDownloadAttendancePDF" class="btn btn-outline-primary" style="background-color:#ffc107;" onclick="downloadAttendancePDF('{{ periode_raw }}')"
                                     >
                                         <i class="fa-solid fa-file-pdf"></i>
                                         Download PDF

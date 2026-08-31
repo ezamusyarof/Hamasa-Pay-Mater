@@ -737,7 +737,53 @@ def download_all_payroll():
         }), 400
 
     # ==========================================================
-    # 1. AMBIL DATA PAYROLL
+    # KONFIGURASI SURAT
+    # ==========================================================
+
+    COMPANY_CITY = "Cibubur"
+    BANK_DESTINATION = "PT Bank UOB Indonesia Cab. Cibubur"
+    DIRECTOR_NAME = "Bonatua Silalahi"
+    COMPANY_ACCOUNT_NAME = "PT. HAMASA IPARNA MANDIRI"
+    COMPANY_ACCOUNT_NUMBER = "5403003310"
+
+    # ==========================================================
+    # 1. VALIDASI PERIODE
+    # ==========================================================
+
+    try:
+        year, month = map(int, periode.split("-"))
+        if month < 1 or month > 12:
+            raise ValueError
+
+    except ValueError:
+
+        return jsonify({
+            "error": "Format periode harus YYYY-MM."
+        }), 400
+
+    # ==========================================================
+    # 2. NAMA BULAN
+    # ==========================================================
+
+    nama_bulan = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+
+    nama_bulan_periode = nama_bulan[month - 1]
+
+    # ==========================================================
+    # 3. TANGGAL SURAT
+    # ==========================================================
+
+    today = datetime.date.today()
+
+    tanggal_surat = (
+        f"{COMPANY_CITY}, "
+        f"{today.day} "
+        f"{nama_bulan[today.month - 1]} "
+        f"{today.year}"
+    )
+
+    # ==========================================================
+    # 4. AMBIL DATA PAYROLL
     # ==========================================================
 
     summaries = PayrollSummary.query.filter_by(
@@ -746,59 +792,123 @@ def download_all_payroll():
 
     if not summaries:
         return jsonify({
-            "error": f"Tidak ada data payroll untuk periode {periode}."
+            "error": (
+                f"Tidak ada data payroll "
+                f"untuk periode {periode}."
+            )
         }), 404
 
     # ==========================================================
-    # 2. SIAPKAN DATA EMPLOYEE
+    # 5. SIAPKAN DATA EMPLOYEE
     # ==========================================================
 
     employees_data = []
-
     for s in summaries:
-
         emp = s.employee
-
         if not emp:
             continue
 
+        account_number = emp.no_rekening or "-"
+        bank_name = emp.nama_bank or "-"
+
         employees_data.append({
             "name": emp.name or "-",
-            "position": emp.position or "-",
-            "basic_salary": s.basic_salary or 0,
-            "thp_after_tax": s.thp_after_tax or 0
+            "account_number": account_number,
+            "bank_name": bank_name,
+            "currency": "IDR",
+            "amount": s.thp_after_tax or 0
         })
 
     # ==========================================================
-    # 3. SORT EMPLOYEE
+    # 6. SORT EMPLOYEE BERDASARKAN NAMA
     # ==========================================================
 
     employees_data.sort(
         key=lambda x: (
-            (x["name"] or "-").lower()
-        )
+            x["name"] or "-"
+        ).lower()
     )
 
     # ==========================================================
-    # 4. BUAT WORKBOOK
+    # 7. TOTAL PAYROLL
+    # ==========================================================
+
+    total_payroll = sum(
+        emp["amount"]
+        for emp in employees_data
+    )
+
+    # ==========================================================
+    # 8. FUNGSI TERBILANG
+    # ==========================================================
+
+    def terbilang(n):
+        angka = [ "", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas" ]
+
+        n = int(n)
+
+        if n < 12:
+            return angka[n]
+
+        elif n < 20:
+            return ( terbilang(n - 10) + " Belas" )
+
+        elif n < 100:
+            return ( terbilang(n // 10) + " Puluh " + terbilang(n % 10) )
+
+        elif n < 200:
+            return ( "Seratus " + terbilang(n - 100) )
+
+        elif n < 1000:
+            return ( terbilang(n // 100) + " Ratus " + terbilang(n % 100) )
+
+        elif n < 2000:
+            return ( "Seribu " + terbilang(n - 1000) )
+
+        elif n < 1_000_000:
+            return ( terbilang(n // 1000) + " Ribu " + terbilang(n % 1000) )
+
+        elif n < 1_000_000_000:
+            return ( terbilang(n // 1_000_000) + " Juta " + terbilang(n % 1_000_000) )
+
+        elif n < 1_000_000_000_000:
+            return ( terbilang(n // 1_000_000_000) + " Miliar " + terbilang(n % 1_000_000_000) )
+
+        elif n < 1_000_000_000_000_000:
+            return ( terbilang(n // 1_000_000_000_000) + " Triliun " + terbilang(n % 1_000_000_000_000) )
+
+        return "Jumlah terlalu besar"
+
+    # ----------------------------------------------------------
+    # Bersihkan spasi berlebih
+    # ----------------------------------------------------------
+
+    total_terbilang = " ".join(
+        terbilang(total_payroll).split()
+    )
+
+    total_terbilang = (
+        total_terbilang
+        + " Rupiah"
+    )
+
+    # ==========================================================
+    # 9. BUAT WORKBOOK
     # ==========================================================
 
     wb = Workbook()
+
     ws = wb.active
+
     ws.title = "Payroll"
 
     # ==========================================================
-    # 5. STYLE
+    # 10. STYLE
     # ==========================================================
 
     title_fill = PatternFill(
         fill_type="solid",
         fgColor="1F4E78"
-    )
-
-    header_fill = PatternFill(
-        fill_type="solid",
-        fgColor="5B9BD5"
     )
 
     total_fill = PatternFill(
@@ -813,17 +923,22 @@ def download_all_payroll():
     )
 
     header_font = Font(
-        color="FFFFFF",
-        bold=True
+        color="000000",
+        bold=True,
+        size=12
     )
 
     bold_font = Font(
         bold=True
     )
 
+    normal_font = Font(
+        size=12
+    )
+
     thin_side = Side(
-        style="thin",
-        color="D9E1F2"
+        style="medium",
+        color="000000"
     )
 
     border = Border(
@@ -835,56 +950,90 @@ def download_all_payroll():
 
     center = Alignment(
         horizontal="center",
-        vertical="center"
+        vertical="center",
+        wrap_text=True
     )
 
     left = Alignment(
         horizontal="left",
-        vertical="center"
+        vertical="center",
+        wrap_text=True
+    )
+
+    right = Alignment(
+        horizontal="right",
+        vertical="center",
+        wrap_text=True
     )
 
     # ==========================================================
-    # 6. JUDUL
+    # 11. TANGGAL SURAT
     # ==========================================================
 
-    ws.merge_cells("A1:E1")
+    ws.merge_cells("A1:F1")
 
-    ws["A1"] = "LAPORAN PAYROLL KARYAWAN"
-
-    ws["A1"].fill = title_fill
-    ws["A1"].font = title_font
-    ws["A1"].alignment = center
-
-    ws.row_dimensions[1].height = 32
+    ws["A1"] = tanggal_surat
+    ws["A1"].font = Font(size=12)
+    ws["A1"].alignment = left
 
     # ==========================================================
-    # 7. PERIODE
+    # 12. KEPADA YTH.
     # ==========================================================
 
-    ws.merge_cells("A2:E2")
+    ws.merge_cells("A3:F3")
 
-    ws["A2"] = f"Periode Payroll: {periode}"
-
-    ws["A2"].font = Font(
-        bold=True,
-        size=11
+    ws["A3"] = (
+        f"Kepada Yth.\n"
+        f"{BANK_DESTINATION}\n\n"
+        f"Saya {DIRECTOR_NAME}, sebagai Direktur dari:\n\n"
+        f"Nama Rekening   : {COMPANY_ACCOUNT_NAME}\n"
+        f"Nomor Rekening  : {COMPANY_ACCOUNT_NUMBER}\n\n"
+        f"Memberikan instruksi pindah buku untuk pembayaran "
+        f"Payroll ke rekening {BANK_DESTINATION} kepada nasabah "
+        f"sesuai dengan list di bawah ini:"
     )
 
-    ws["A2"].alignment = center
+    ws["A3"].font = normal_font
+    ws["A3"].alignment = left
 
     # ==========================================================
-    # 8. HEADER
+    # 13. TINGGI ROW SURAT
+    # ==========================================================
+
+    ws.row_dimensions[3].height = 160
+
+    # ==========================================================
+    # 14. JUDUL PAYROLL
+    # ==========================================================
+
+    ws.merge_cells("A5:F5")
+
+    ws["A5"] = (
+        f"Gaji Bulan "
+        f"{nama_bulan_periode} "
+        f"{year}"
+    )
+
+    ws["A5"].font = Font(size=12)
+
+    ws["A5"].alignment = center
+
+    ws.row_dimensions[5].height = 32
+
+    # ==========================================================
+    # 15. HEADER TABEL
     # ==========================================================
 
     headers = [
         "No",
         "Nama",
-        "Jabatan",
-        "Gaji Pokok",
-        "THP Diterima"
+        "No. Rekening",
+        "Nama Bank",
+        "Mata Uang",
+        "Nominal"
     ]
 
-    header_row = 4
+    header_row = 6
 
     for col, header in enumerate(
         headers,
@@ -897,30 +1046,37 @@ def download_all_payroll():
             value=header
         )
 
-        cell.fill = header_fill
-        cell.font = header_font
+        # Header dibuat seperti baris tabel biasa
+        cell.font = Font(
+            bold=True,
+            size=11
+        )
+
         cell.alignment = center
         cell.border = border
 
-    ws.row_dimensions[header_row].height = 28
+    ws.row_dimensions[header_row].height = 30
 
     # ==========================================================
-    # 9. DATA
+    # 16. DATA KARYAWAN
     # ==========================================================
 
-    start_data_row = 5
+    start_data_row = 7
 
-    for row_index, emp in enumerate(
+    for index, emp in enumerate(
         employees_data,
-        start=start_data_row
+        start=1
     ):
 
+        row = start_data_row + index - 1
+
         values = [
-            row_index - start_data_row + 1,
+            index,
             emp["name"],
-            emp["position"],
-            emp["basic_salary"],
-            emp["thp_after_tax"]
+            emp["account_number"],
+            emp["bank_name"],
+            "IDR",
+            emp["amount"]
         ]
 
         for col, value in enumerate(
@@ -929,51 +1085,56 @@ def download_all_payroll():
         ):
 
             cell = ws.cell(
-                row=row_index,
+                row=row,
                 column=col,
                 value=value
             )
 
             cell.border = border
+            cell.font = Font(size=12)
 
-            if col in [1, 4, 5]:
+            if col in [1, 5]:
                 cell.alignment = center
+
+            elif col == 6:
+                cell.alignment = right
+
             else:
                 cell.alignment = left
 
+        ws.row_dimensions[row].height = 18
+
     # ==========================================================
-    # 10. FORMAT RUPIAH
+    # 17. FORMAT NOMINAL
     # ==========================================================
 
     currency_format = '#,##0'
 
     for row in range(
         start_data_row,
-        ws.max_row + 1
+        start_data_row + len(employees_data)
     ):
 
         ws.cell(
             row=row,
-            column=4
-        ).number_format = currency_format
-
-        ws.cell(
-            row=row,
-            column=5
+            column=6
         ).number_format = currency_format
 
     # ==========================================================
-    # 11. TOTAL
+    # 18. TOTAL
     # ==========================================================
 
-    total_row = ws.max_row + 1
+    total_row = (
+        start_data_row
+        + len(employees_data)
+    )
 
-    # Merge A:C
+    # Merge A:E
     ws.merge_cells(
         start_row=total_row,
         start_column=1,
         end_row=total_row,
-        end_column=3
+        end_column=5
     )
 
     total_label = ws.cell(
@@ -982,52 +1143,29 @@ def download_all_payroll():
         value="TOTAL"
     )
 
-    total_label.fill = total_fill
+    # total_label.fill = total_fill
     total_label.font = bold_font
     total_label.alignment = center
     total_label.border = border
 
-    # Total Gaji Pokok
-    total_basic_salary = sum(
-        emp["basic_salary"]
-        for emp in employees_data
-    )
-
-    # Total THP Diterima
-    total_thp = sum(
-        emp["thp_after_tax"]
-        for emp in employees_data
-    )
-
-    basic_cell = ws.cell(
+    # Nominal total
+    total_cell = ws.cell(
         row=total_row,
-        column=4,
-        value=total_basic_salary
+        column=6,
+        value=total_payroll
     )
 
-    basic_cell.fill = total_fill
-    basic_cell.font = bold_font
-    basic_cell.alignment = center
-    basic_cell.border = border
-    basic_cell.number_format = currency_format
-
-    thp_cell = ws.cell(
-        row=total_row,
-        column=5,
-        value=total_thp
-    )
-
-    thp_cell.fill = total_fill
-    thp_cell.font = bold_font
-    thp_cell.alignment = center
-    thp_cell.border = border
-    thp_cell.number_format = currency_format
+    # total_cell.fill = total_fill
+    total_cell.font = bold_font
+    total_cell.alignment = right
+    total_cell.border = border
+    total_cell.number_format = currency_format
 
     # ==========================================================
-    # 12. BORDER TOTAL
+    # 19. BORDER TOTAL
     # ==========================================================
 
-    for col in range(1, 6):
+    for col in range(1, 7):
 
         cell = ws.cell(
             row=total_row,
@@ -1036,53 +1174,254 @@ def download_all_payroll():
 
         cell.border = border
 
-        if col <= 3:
-            cell.fill = total_fill
+        # if col <= 5:
+        #     cell.fill = total_fill
+
+    ws.row_dimensions[total_row].height = 28
 
     # ==========================================================
-    # 13. FILTER
+    # 20. TOTAL ANGKA
     # ==========================================================
 
-    ws.auto_filter.ref = (
-        f"A{header_row}:E{total_row - 1}"
+    amount_number_row = total_row + 2
+
+    ws.merge_cells(
+        start_row=amount_number_row,
+        start_column=1,
+        end_row=amount_number_row,
+        end_column=6
     )
 
+    ws.cell(
+        row=amount_number_row,
+        column=1,
+        value=(
+            f"Total Transaksi : Rp{total_payroll:,.0f}"
+        )
+    )
+
+    ws.cell(
+        row=amount_number_row,
+        column=1
+    ).font = Font(
+        bold=True,
+        size=12
+    )
+
+    ws.cell(
+        row=amount_number_row,
+        column=1
+    ).alignment = left
+
     # ==========================================================
-    # 14. FREEZE HEADER
+    # 21. TOTAL TERBILANG
     # ==========================================================
 
-    ws.freeze_panes = "A5"
+    amount_words_row = total_row + 3
+
+    ws.merge_cells(
+        start_row=amount_words_row,
+        start_column=1,
+        end_row=amount_words_row,
+        end_column=6
+    )
+
+    ws.cell(
+        row=amount_words_row,
+        column=1,
+        value=total_terbilang
+    )
+
+    ws.cell(
+        row=amount_words_row,
+        column=1
+    ).font = Font(
+        italic=True,
+        bold=True,
+        size=12
+    )
+
+    ws.cell(
+        row=amount_words_row,
+        column=1
+    ).alignment = left
 
     # ==========================================================
-    # 15. COLUMN WIDTH
+    # 22. PENUTUP
     # ==========================================================
 
-    ws.column_dimensions["A"].width = 7
-    ws.column_dimensions["B"].width = 30
-    ws.column_dimensions["C"].width = 25
-    ws.column_dimensions["D"].width = 20
-    ws.column_dimensions["E"].width = 22
+    closing_row = total_row + 5
+
+    ws.merge_cells(
+        start_row=closing_row,
+        start_column=1,
+        end_row=closing_row,
+        end_column=6
+    )
+
+    closing_cell = ws.cell(
+        row=closing_row,
+        column=1,
+        value=(
+            "Mohon agar transaksi ini dapat dijalankan "
+            "segera. Terima kasih atas bantuannya."
+        )
+    )
+
+    closing_cell.font = Font(size=12)
+    closing_cell.alignment = left
+
 
     # ==========================================================
-    # 16. TAMPILAN
+    # 23. HORMAT SAYA
+    # ==========================================================
+
+    signature_row = closing_row + 3
+
+    ws.merge_cells(
+        start_row=signature_row,
+        start_column=1,
+        end_row=signature_row,
+        end_column=6
+    )
+
+    signature_cell = ws.cell(
+        row=signature_row,
+        column=1,
+        value="Hormat Saya,"
+    )
+
+    signature_cell.font = Font(size=12)
+    signature_cell.alignment = left
+
+
+    # ==========================================================
+    # 24. NAMA DIREKTUR
+    # ==========================================================
+
+    director_row = signature_row + 5
+
+    ws.merge_cells(
+        start_row=director_row,
+        start_column=1,
+        end_row=director_row,
+        end_column=6
+    )
+
+    director_cell = ws.cell(
+        row=director_row,
+        column=1,
+        value=DIRECTOR_NAME
+    )
+
+    director_cell.font = Font(
+        bold=True,
+        size=12
+    )
+
+    director_cell.alignment = left
+
+
+    # ==========================================================
+    # 25. JABATAN
+    # ==========================================================
+
+    position_row = director_row + 1
+
+    ws.merge_cells(
+        start_row=position_row,
+        start_column=1,
+        end_row=position_row,
+        end_column=6
+    )
+
+    position_cell = ws.cell(
+        row=position_row,
+        column=1,
+        value="Direktur"
+    )
+
+    position_cell.font = Font(
+        size=12
+    )
+
+    position_cell.alignment = left
+
+
+    # ==========================================================
+    # 26. COLUMN WIDTH
+    # ==========================================================
+
+    ws.column_dimensions["A"].width = 6
+    ws.column_dimensions["B"].width = 28
+    ws.column_dimensions["C"].width = 16
+    ws.column_dimensions["D"].width = 14
+    ws.column_dimensions["E"].width = 8
+    ws.column_dimensions["F"].width = 12
+
+
+    # ==========================================================
+    # 27. GRIDLINES
     # ==========================================================
 
     ws.sheet_view.showGridLines = False
 
+
     # ==========================================================
-    # 17. PRINT SETTING
+    # 28. FREEZE HEADER
+    # ==========================================================
+
+    # Tidak menggunakan freeze/floating header
+
+
+    # ==========================================================
+    # 29. PRINT SETTING
     # ==========================================================
 
     ws.page_setup.orientation = "landscape"
+
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
 
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
-    ws.print_title_rows = "1:4"
 
     # ==========================================================
-    # 18. DOWNLOAD
+    # MARGIN
+    # ==========================================================
+
+    ws.page_margins.left = 0.35
+    ws.page_margins.right = 0.35
+    ws.page_margins.top = 0.5
+    ws.page_margins.bottom = 0.5
+
+    ws.page_margins.header = 0.2
+    ws.page_margins.footer = 0.2
+
+
+    # ==========================================================
+    # PRINT AREA
+    # ==========================================================
+
+    ws.print_area = (
+        f"A1:F{position_row}"
+    )
+
+
+    # ==========================================================
+    # 30. PAGE FOOTER
+    # ==========================================================
+
+    ws.oddFooter.center.text = (
+        "Payroll - "
+        f"{nama_bulan_periode} {year}"
+    )
+
+
+    # ==========================================================
+    # 31. DOWNLOAD
     # ==========================================================
 
     output = BytesIO()

@@ -67,6 +67,9 @@ class Employee(db.Model):
     phone = db.Column(db.String(30))
     email = db.Column(db.String(100))
     status = db.Column(db.String(20), default="Aktif")
+    no_rekening = db.Column(db.String(100))
+    nama_bank = db.Column(db.String(100))
+    pemilik_bank = db.Column(db.String(100))
 
 class LogAbsensi(db.Model):
     __tablename__ = "log_absensi"

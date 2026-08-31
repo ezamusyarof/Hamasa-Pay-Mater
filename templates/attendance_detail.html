@@ -60,11 +60,28 @@
                         value="{{periode_raw}}"
                         onchange="loadPageData('attendance/detail',this.value)">
                 </div>
+                <div class="attendance-import-container">
+                    <input
+                        type="file"
+                        id="attendanceExcelInput"
+                        accept=".xlsx,.xls"
+                        hidden
+                    >
+                    <button
+                        type="button"
+                        id="btnImportAttendance"
+                        class="btn btn-primary"
+                        onclick="document.getElementById('attendanceExcelInput').click()"
+                    >
+                        <i class="fa-solid fa-file-excel"></i>
+                        Import Excel
+                    </button>
+                </div>
 
-                <button class="btn btn-primary" id="btnUpdateAttendance" onclick="updateAttendance()">
+                <!-- <button class="btn btn-primary" id="btnUpdateAttendance" onclick="updateAttendance()">
                     <i class="fa-solid fa-rotate"></i>
                     Update Data Kehadiran
-                </button>
+                </button> -->
             </div>
         </header>
 
@@ -176,12 +193,12 @@
 
                             <div class="mt-3 pt-2 border-top fs-7 card-footer" style="font-size: 13px;">
                                 <b>Keterangan Status:</b><br>
-                                <span class="badge bg-success me-1">H = Hadir,</span>
-                                <span class="badge bg-warning text-dark me-1">T = Terlambat,</span>
-                                <span class="badge bg-info text-dark me-1">S = Sakit,</span>
-                                <span class="badge bg-danger me-1">A = Absen,</span>
-                                <span class="badge bg-primary me-1">L = Lembur</span>
-                                <p class="badge bg-primary me-1">* Sakit harus disertai surat sakit dari dokter.</span>
+                                <span class="badge bg-success me-1 time-badge status-H" style="height:30px; width: 100px; margin-top:10px;">H : Hadir</span>
+                                <span class="badge bg-warning text-dark me-1 time-badge status-T" style="height:30px; width: 100px;">T : Terlambat </span>
+                                <span class="badge bg-info text-dark me-1 time-badge status-S" style="height:30px; width: 100px;">S : Sakit </span>
+                                <span class="badge bg-danger me-1 time-badge status-A" style="height:30px; width: 100px;">A : Absen </span>
+                                <span class="badge bg-primary me-1 time-badge status-L" style="height:30px; width: 100px;">L : Lembur </span>
+                                <p class="badge bg-primary me-1" style="margin-top:10px;">* Sakit harus disertai surat sakit dari dokter.</span>
                             </div>
                         </div>
                     </div>

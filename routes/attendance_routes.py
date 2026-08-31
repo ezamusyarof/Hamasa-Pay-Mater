@@ -1,11 +1,13 @@
 import calendar
 import datetime
+import re
 from flask import Blueprint, jsonify, request, current_app
 from zk import ZK
 from models import DailyAttendance, Employee, LogAbsensi, PayrollSummary
 from routes.user_routes import login_required
 from services.attendance_service import calculate_status_from_time, is_holiday_date, process_attendance_recap_incremental #, sync_visit_report
 from extensions import db
+from openpyxl import load_workbook
 
 attendance_bp = Blueprint(
     "attendance",
@@ -662,3 +664,573 @@ def sync_fingerprint():
         "status": "success",
         "message": f"Berhasil! {logs_added_count} log absensi baru ditarik & rekap presensi harian telah diperbarui."
     })
+
+def parse_excel_attendance_value(value, current_date=None):
+
+    if value is None:
+        return None
+
+    # ==========================================================
+    # CEK HARI LIBUR / WEEKEND
+    # Senin = 0
+    # Selasa = 1
+    # ...
+    # Sabtu = 5
+    # Minggu = 6
+    # ==========================================================
+
+    is_weekend = (
+        current_date is not None
+        and current_date.weekday() in [5, 6]
+    )
+
+    # ==========================================================
+    # AMBIL DEADLINE ABSENSI
+    # ==========================================================
+
+    deadline = datetime.datetime.strptime(
+        current_app.config["ATTENDANCE_DEADLINE"],
+        "%H:%M:%S"
+    ).time()
+
+    # ==========================================================
+    # TENTUKAN STATUS BERDASARKAN JAM MASUK
+    # ==========================================================
+
+    def get_status(checkin_time):
+
+        # Jika Sabtu / Minggu dan ada absensi
+        # maka dianggap Lembur
+        if is_weekend:
+            return "L"
+
+        # Hari kerja normal
+        if checkin_time <= deadline:
+            return "H"
+
+        return "T"
+
+    # ==========================================================
+    # JIKA EXCEL MENYIMPAN DATETIME
+    # ==========================================================
+
+    if isinstance(value, datetime.datetime):
+
+        checkin_time = value.time()
+
+        return {
+            "status": get_status(checkin_time),
+            "checkin": checkin_time.strftime("%H:%M"),
+            "checkout": None
+        }
+
+    # ==========================================================
+    # JIKA EXCEL MENYIMPAN TIME OBJECT
+    # ==========================================================
+
+    if isinstance(value, datetime.time):
+
+        return {
+            "status": get_status(value),
+            "checkin": value.strftime("%H:%M"),
+            "checkout": None
+        }
+
+    # ==========================================================
+    # STRING
+    # ==========================================================
+
+    text = str(value).strip()
+
+    if not text:
+        return None
+
+    # ==========================================================
+    # LIBUR / TIDAK ADA ABSENSI
+    # ==========================================================
+
+    if text == "-":
+
+        return {
+            "status": "-",
+            "checkin": None,
+            "checkout": None
+        }
+
+    # ==========================================================
+    # STATUS MANUAL
+    # ==========================================================
+
+    upper = text.upper()
+
+    if upper in [
+        "A",
+        "H",
+        "T",
+        "S",
+        "L"
+    ]:
+
+        return {
+            "status": upper,
+            "checkin": None,
+            "checkout": None
+        }
+
+    # ==========================================================
+    # FORMAT:
+    #
+    # 07:08 -
+    # 07:08 17:08
+    # 07:08 17:36
+    # ==========================================================
+
+    parts = text.split()
+
+    if len(parts) >= 2:
+
+        checkin = parts[0]
+        checkout = parts[1]
+
+        try:
+
+            # --------------------------------------------------
+            # PARSE CHECK-IN
+            # --------------------------------------------------
+
+            checkin_time = datetime.datetime.strptime(
+                checkin,
+                "%H:%M"
+            ).time()
+
+            # --------------------------------------------------
+            # PARSE CHECK-OUT
+            # --------------------------------------------------
+
+            if checkout != "-":
+
+                checkout_time = datetime.datetime.strptime(
+                    checkout,
+                    "%H:%M"
+                ).time()
+
+                checkout_value = (
+                    checkout_time.strftime("%H:%M")
+                )
+
+            else:
+
+                checkout_value = None
+
+            # --------------------------------------------------
+            # TENTUKAN STATUS
+            # --------------------------------------------------
+
+            status = get_status(
+                checkin_time
+            )
+
+            return {
+                "status": status,
+                "checkin": checkin_time.strftime("%H:%M"),
+                "checkout": checkout_value
+            }
+
+        except ValueError:
+
+            pass
+
+    # ==========================================================
+    # FORMAT:
+    #
+    # 07:08
+    # ==========================================================
+
+    try:
+
+        checkin_time = datetime.datetime.strptime(
+            text,
+            "%H:%M"
+        ).time()
+
+        return {
+            "status": get_status(
+                checkin_time
+            ),
+            "checkin": checkin_time.strftime("%H:%M"),
+            "checkout": None
+        }
+
+    except ValueError:
+
+        pass
+
+    return None
+
+@attendance_bp.route("/fingerprint/import-excel", methods=["POST"])
+def import_attendance_excel():
+
+    # ==========================================================
+    # 1. CEK FILE
+    # ==========================================================
+
+    if "file" not in request.files:
+
+        return jsonify({
+            "status": "error",
+            "message": "File Excel tidak ditemukan."
+        }), 400
+
+    file = request.files["file"]
+
+    if not file or file.filename == "":
+
+        return jsonify({
+            "status": "error",
+            "message": "Silakan pilih file Excel."
+        }), 400
+
+    # ==========================================================
+    # 2. PERIODE
+    # ==========================================================
+
+    periode = request.form.get("periode", "").strip()
+
+    if not periode:
+
+        return jsonify({
+            "status": "error",
+            "message": "Periode tidak ditemukan."
+        }), 400
+
+    # Validasi YYYY-MM
+    if not re.match(r"^\d{4}-\d{2}$", periode):
+
+        return jsonify({
+            "status": "error",
+            "message": "Format periode harus YYYY-MM."
+        }), 400
+
+    try:
+
+        year, month = map(
+            int,
+            periode.split("-")
+        )
+
+        if month < 1 or month > 12:
+
+            raise ValueError(
+                "Bulan tidak valid."
+            )
+
+    except Exception:
+
+        return jsonify({
+            "status": "error",
+            "message": "Periode tidak valid."
+        }), 400
+
+    # ==========================================================
+    # 3. VALIDASI EXTENSION
+    # ==========================================================
+
+    filename = file.filename.lower()
+
+    if not filename.endswith(
+        (".xlsx", ".xls")
+    ):
+
+        return jsonify({
+            "status": "error",
+            "message": "File harus berupa Excel (.xlsx atau .xls)."
+        }), 400
+
+    try:
+
+        # ======================================================
+        # 4. BACA WORKBOOK
+        # ======================================================
+
+        workbook = load_workbook(
+            file,
+            data_only=True
+        )
+
+        worksheet = workbook.active
+
+        # ======================================================
+        # 5. AMBIL HEADER
+        # ======================================================
+
+        headers = []
+
+        for cell in worksheet[1]:
+
+            value = cell.value
+
+            if value is None:
+
+                headers.append("")
+
+            else:
+
+                headers.append(
+                    str(value).strip()
+                )
+
+        # Header pertama HARUS Nama
+        if not headers:
+
+            return jsonify({
+                "status": "error",
+                "message": "Excel tidak memiliki header."
+            }), 400
+
+        if headers[0].lower() != "nama":
+
+            return jsonify({
+                "status": "error",
+                "message":
+                    "Kolom pertama Excel harus bernama 'Nama'."
+            }), 400
+
+        # ======================================================
+        # 6. AMBIL KOLOM TANGGAL
+        # ======================================================
+
+        date_columns = {}
+
+        for index, header in enumerate(headers[1:], start=2):
+
+            if header == "":
+                continue
+
+            try:
+
+                day = int(float(header))
+
+                if 1 <= day <= 31:
+
+                    date_columns[index] = day
+
+            except (ValueError, TypeError):
+
+                continue
+
+        if not date_columns:
+
+            return jsonify({
+                "status": "error",
+                "message":
+                    "Tidak ditemukan kolom tanggal pada Excel."
+            }), 400
+
+        # ======================================================
+        # 7. COUNTER
+        # ======================================================
+
+        employees_updated = 0
+        records_updated = 0
+        employees_not_found = []
+        invalid_rows = []
+
+        # ======================================================
+        # 8. PROSES SETIAP EMPLOYEE
+        # ======================================================
+
+        for row_number, row in enumerate(
+            worksheet.iter_rows(
+                min_row=2,
+                values_only=True
+            ),
+            start=2
+        ):
+
+            if not row:
+                continue
+
+            name = row[0]
+
+            if name is None:
+                continue
+
+            name = str(name).strip()
+
+            if not name:
+                continue
+
+            # ==================================================
+            # CARI EMPLOYEE
+            # ==================================================
+
+            employee = Employee.query.filter(
+                db.func.lower(Employee.name) ==
+                name.lower()
+            ).first()
+
+            if not employee:
+
+                employees_not_found.append(name)
+
+                continue
+
+            employee_changed = False
+
+            # ==================================================
+            # PROSES SETIAP TANGGAL
+            # ==================================================
+
+            for column_index, day in date_columns.items():
+
+                # Pastikan tanggal benar
+                try:
+
+                    current_date = datetime.date(
+                        year,
+                        month,
+                        day
+                    )
+
+                except ValueError:
+
+                    continue
+
+                # Ambil value cell
+                cell_value = None
+
+                if column_index - 1 < len(row):
+
+                    cell_value = row[column_index - 1]
+
+                # ==================================================
+                # PARSE NILAI ABSENSI
+                # ==================================================
+
+                parsed = parse_excel_attendance_value(
+                        cell_value, current_date
+                    )
+
+                if parsed is None:
+                    continue
+
+                status = parsed["status"]
+                checkin = parsed["checkin"]
+                checkout = parsed["checkout"]
+
+                # ==================================================
+                # CARI DAILY ATTENDANCE
+                # ==================================================
+
+                attendance = DailyAttendance.query.filter_by(
+                        user_id=str(employee.user_id),
+                        date=current_date.strftime("%Y-%m-%d")
+                    ).first()
+
+                # ==================================================
+                # BUAT JIKA BELUM ADA
+                # ==================================================
+
+                if attendance is None:
+
+                    attendance = DailyAttendance(
+                        user_id=str(employee.user_id),
+                        date=current_date.strftime("%Y-%m-%d")
+                    )
+
+                    db.session.add(attendance)
+
+                # ==================================================
+                # UPDATE DATA
+                # ==================================================
+
+                attendance.status = status
+                attendance.checkin = checkin
+                attendance.checkout = checkout
+                attendance.is_manual = True
+                attendance.updated_at = datetime.datetime.now()
+
+                employee_changed = True
+                records_updated += 1
+
+            if employee_changed:
+
+                employees_updated += 1
+
+        # ==========================================================
+        # 9. SIMPAN
+        # ==========================================================
+
+        db.session.commit()
+
+        # ==========================================================
+        # 10. UPDATE PAYROLL
+        # ==========================================================
+
+        try:
+
+            update_payroll_summary(
+                employee=Employee,
+                periode=periode
+            )
+
+        except Exception as payroll_error:
+
+            print(
+                "⚠️ Gagal update payroll:",
+                payroll_error
+            )
+
+        # ==========================================================
+        # 11. RESPONSE
+        # ==========================================================
+
+        message = (
+            f"Berhasil mengimport absensi {periode}. "
+            f"{records_updated} data absensi diperbarui "
+            f"untuk {employees_updated} karyawan."
+        )
+
+        if employees_not_found:
+
+            message += (
+                f" {len(employees_not_found)} nama "
+                f"tidak ditemukan."
+            )
+
+        return jsonify({
+
+            "status": "success",
+
+            "message": message,
+
+            "periode": periode,
+
+            "employees_updated":
+                employees_updated,
+
+            "records_updated":
+                records_updated,
+
+            "employees_not_found":
+                employees_not_found
+
+        })
+
+    except Exception as e:
+
+        db.session.rollback()
+
+        print(
+            "❌ Error import Excel:",
+            e
+        )
+
+        return jsonify({
+
+            "status": "error",
+
+            "message":
+                f"Gagal mengimport Excel: {str(e)}"
+
+        }), 500

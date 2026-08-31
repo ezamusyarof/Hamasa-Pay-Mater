@@ -699,7 +699,7 @@ async function downloadAttendancePDF(periode) {
         // ==================================================
 
         const filename =
-            `Waktu Kehadiran ${periode}.pdf`;
+            `Rekap Kehadiran Karyawan ${periode}.pdf`;
 
         // ==================================================
         // SIMPAN VIA PYWEBVIEW
@@ -719,7 +719,7 @@ async function downloadAttendancePDF(periode) {
         if (result?.success) {
 
             console.log(
-                "PDF waktu kehadiran berhasil disimpan:",
+                "PDF rekap kehadiran karyawan berhasil disimpan:",
                 result.path
             );
 
@@ -748,5 +748,178 @@ async function downloadAttendancePDF(periode) {
         if (clone) {
             clone.remove();
         }
+    }
+}
+
+async function downloadAttendanceExcel(periode) {
+
+    const original =
+        document.getElementById("tab-detail-kehadiran");
+
+    if (!original) {
+
+        alert(
+            "Section waktu kehadiran tidak ditemukan."
+        );
+
+        return;
+    }
+
+    try {
+
+        // ==================================================
+        // CARI TABEL
+        // ==================================================
+
+        const table =
+            original.querySelector("#attendanceTable");
+
+        if (!table) {
+
+            throw new Error(
+                "Tabel attendanceTable tidak ditemukan."
+            );
+        }
+
+        // ==================================================
+        // BUAT WORKBOOK DARI TABLE
+        // ==================================================
+
+        const workbook =
+            XLSX.utils.table_to_book(
+                table,
+                {
+                    sheet: "Kehadiran"
+                }
+            );
+
+        // ==================================================
+        // AMBIL WORKSHEET
+        // ==================================================
+
+        const worksheet =
+            workbook.Sheets["Kehadiran"];
+
+        // ==================================================
+        // ATUR LEBAR KOLOM
+        // ==================================================
+
+        const range =
+            XLSX.utils.decode_range(
+                worksheet["!ref"]
+            );
+
+        const columnWidths = [];
+
+        for (
+            let col = range.s.c;
+            col <= range.e.c;
+            col++
+        ) {
+
+            let maxLength = 10;
+
+            for (
+                let row = range.s.r;
+                row <= range.e.r;
+                row++
+            ) {
+
+                const cell =
+                    worksheet[
+                        XLSX.utils.encode_cell({
+                            r: row,
+                            c: col
+                        })
+                    ];
+
+                if (cell && cell.v != null) {
+
+                    const length =
+                        String(cell.v).length;
+
+                    if (length > maxLength) {
+                        maxLength = length;
+                    }
+                }
+            }
+
+            columnWidths.push({
+                wch: Math.min(maxLength + 2, 30)
+            });
+        }
+
+        worksheet["!cols"] =
+            columnWidths;
+
+        // ==================================================
+        // BUAT FILE XLSX SEBAGAI BASE64
+        // ==================================================
+
+        const base64 =
+            XLSX.write(
+                workbook,
+                {
+                    bookType: "xlsx",
+                    type: "base64"
+                }
+            );
+
+        // ==================================================
+        // DATA URI
+        // ==================================================
+
+        const xlsxData =
+            "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," +
+            base64;
+
+        // ==================================================
+        // NAMA FILE
+        // ==================================================
+
+        const filename =
+            `Rekap Kehadiran Karyawan ${periode}.xlsx`;
+
+        // ==================================================
+        // SIMPAN VIA PYWEBVIEW
+        // ==================================================
+
+        const result =
+            await window.pywebview.api.save_file(
+                xlsxData,
+                filename,
+                "xlsx"
+            );
+
+        // ==================================================
+        // HASIL
+        // ==================================================
+
+        if (result?.success) {
+
+            console.log(
+                "Excel waktu kehadiran berhasil disimpan:",
+                result.path
+            );
+
+        } else if (!result?.cancelled) {
+
+            alert(
+                "Gagal menyimpan Excel.\n\n" +
+                (result?.message || "")
+            );
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Gagal membuat Excel kehadiran:",
+            error
+        );
+
+        alert(
+            "Gagal membuat Excel kehadiran.\n\n" +
+            error.message
+        );
     }
 }

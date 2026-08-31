@@ -375,3 +375,165 @@ function toggleQtyInput() {
         lblNilaiDasar.innerText = "Nilai Dasar (Rp)";
     }
 }
+
+
+document
+    .getElementById("attendanceExcelInput")
+    ?.addEventListener("change", async function () {
+
+        const file = this.files[0];
+
+        if (!file) {
+            return;
+        }
+
+        await importAttendanceExcel(file);
+
+        // Reset input agar file yang sama bisa dipilih lagi
+        this.value = "";
+    });
+
+
+async function importAttendanceExcel(file) {
+
+    const btn =
+        document.getElementById("btnImportAttendance");
+
+    const periodeInput =
+        document.getElementById("selectPeriode");
+
+    const periode =
+        periodeInput ? periodeInput.value : "";
+
+    if (!periode) {
+
+        showToastFailed(
+            "Silakan pilih periode terlebih dahulu."
+        );
+
+        return;
+    }
+
+    if (!file) {
+        return;
+    }
+
+    // ==================================================
+    // VALIDASI FILE
+    // ==================================================
+
+    const extension =
+        file.name.split(".").pop().toLowerCase();
+
+    if (!["xlsx", "xls"].includes(extension)) {
+
+        showToastFailed(
+            "File harus berupa Excel (.xlsx atau .xls)."
+        );
+
+        return;
+    }
+
+    const originalContent =
+        btn ? btn.innerHTML : "";
+
+    try {
+
+        // ==================================================
+        // LOADING
+        // ==================================================
+
+        if (btn) {
+
+            btn.disabled = true;
+
+            btn.innerHTML = `
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                Mengimport...
+            `;
+        }
+
+        // ==================================================
+        // FORMDATA
+        // ==================================================
+
+        const formData =
+            new FormData();
+
+        formData.append(
+            "file",
+            file
+        );
+
+        formData.append(
+            "periode",
+            periode
+        );
+
+        // ==================================================
+        // KIRIM KE FLASK
+        // ==================================================
+
+        const response =
+            await fetch(
+                "/api/fingerprint/import-excel",
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+        const result =
+            await response.json();
+
+        // ==================================================
+        // HASIL
+        // ==================================================
+
+        if (response.ok && result.status === "success") {
+
+            showToast(
+                result.message ||
+                `Data kehadiran ${periode} berhasil diimport.`
+            );
+
+            console.log(
+                "Hasil import:",
+                result
+            );
+
+            // Refresh tabel
+            setTimeout(() => {
+
+                window.location.reload();
+
+            }, 1000);
+
+        } else {
+
+            showToastFailed(
+                result.message ||
+                "Gagal mengimport data kehadiran."
+            );
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Error import attendance:",
+            error
+        );
+
+        showToastFailed(
+            "Terjadi kesalahan saat mengimport file Excel."
+        );
+
+    } finally {
+
+        if (btn) {
+
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+}

@@ -70,6 +70,9 @@
                                     <th>Nama</th>
                                     <th>Posisi</th>
                                     <th>Gaji Pokok</th>
+                                    <th>Norek</th>
+                                    <th>Bank</th>
+                                    <th>Pemilik Bank</th>
                                     <th>Jenis Kelamin</th>
                                     <th>PTKP</th>
                                     <!-- <th>Email</th> -->
@@ -85,6 +88,9 @@
                                     <td>{{ emp.name }}</td>
                                     <td>{{ emp.position }}</td>
                                     <td class="harga">{{ emp.basic_salary }}</td>
+                                    <td>{{ emp.no_rekening }}</td>
+                                    <td>{{ emp.nama_bank }}</td>
+                                    <td>{{ emp.pemilik_bank }}</td>
                                     <td>{{ emp.gender }}</td>
                                     <td>{{ emp.ptkp }}</td>
                                     <!-- <td>{{ emp.email }}</td> -->
@@ -126,16 +132,6 @@
                             <label>Posisi</label>
                             <input type="text" id="emp-jabatan" required placeholder="Teknisi">
                         </div>
-                        <!-- <div class="form-group">
-                            <label>Divisi</label>
-                            <select id="emp-divisi">
-                                <option>Teknisi</option>
-                                <option>Admin</option>
-                                <option>IT</option>
-                                <option>Marketing</option>
-                                <option>Lainnya</option>
-                            </select>
-                        </div> -->
                         <div class="form-group">
                             <label>Gaji Pokok</label>
                             <div class="input-inline-wrapper">
@@ -152,17 +148,25 @@
                             </div>
                         </div>
                         <div class="form-group">
+                            <label>Nomor Rekening</label>
+                            <input type="text" id="emp-no-rekening" required placeholder="Nomor Rekening">
+                        </div>
+                        <div class="form-group">
+                            <label>Nama Bank</label>
+                            <input type="text" id="emp-nama-bank" required placeholder="Nama Bank">
+                        </div>
+                        <div class="form-group">
+                            <label>Pemilik Bank</label>
+                            <input type="text" id="emp-pemilik-bank" required placeholder="Nama Pemilik Bank">
+                        </div>
+                        <div class="form-group">
                             <label for="emp-status-perkawinan">Jenis Kelamin</label>
                             <select id="emp-jenis-kelamin" required>
                                 <option value="" disabled selected>Pilih status</option>
                                 <option value="Laki-Laki">Laki-Laki</option>
                                 <option value="Perempuan">Perempuan</option>
                             </select>
-                        </div>
-                        <!-- <div class="form-group">
-                            <label>Tunjangan Jabatan & Makan (Rp)</label>
-                            <input type="number" id="emp-tunjangan" required placeholder="1000000">
-                        </div> -->                        
+                        </div>                   
                         <div class="form-group">
                             <label for="emp-status-perkawinan">Status Perkawinan</label>
                             <select id="emp-status-perkawinan" required>
@@ -179,10 +183,6 @@
                             <label>Nomor WhatsApp</label>
                             <input type="text" id="emp-wa" required placeholder="628123456789">
                         </div>
-                        <!-- <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" id="emp-email" required placeholder="nama@gmail.com">
-                        </div> -->
                     </div>
                 </form>
             </div>
